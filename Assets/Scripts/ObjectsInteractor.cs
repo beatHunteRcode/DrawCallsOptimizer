@@ -1,7 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Profiling;
+using UnityEditor;
 using UnityEngine;
 
 public class ObjectsInteractor : ScriptableObject
@@ -21,11 +23,23 @@ public class ObjectsInteractor : ScriptableObject
         return obj.GetComponent<MeshFilter>().sharedMesh.triangles.Count() / 3;
     }
 
-    public void DeleteAllChildren(GameObject obj)
+    public void AddMaterialToObjectIfNeeded(Material newMaterial, GameObject obj)
     {
-        while (obj.transform.childCount > 0)
+        Material[] allObjectMaterials = obj.GetComponent<Renderer>().materials;
+        if (!allObjectMaterials.Contains(newMaterial))
         {
-            DestroyImmediate(obj.transform.GetChild(0).gameObject);
+            Material[] newObjectMaterials = new Material[allObjectMaterials.Length + 1];
+            Array.Copy(allObjectMaterials, newObjectMaterials, allObjectMaterials.Length);
+            newObjectMaterials[allObjectMaterials.Length] = newMaterial;
+            obj.GetComponent<Renderer>().materials = RemoveDuplicateMaterials(newObjectMaterials);
         }
+    }
+
+    public static Material[] RemoveDuplicateMaterials(Material[] materials)
+    {
+        HashSet<Material> set = new HashSet<Material>(materials);
+        Material[] result = new Material[set.Count];
+        set.CopyTo(result);
+        return result;
     }
 }

@@ -26,15 +26,20 @@ public class ObjectCombiner : MonoBehaviour
         if (allObjectsPolygonsCount >= TrianglesLimit)
         {
             GameObject parentObj = new GameObject();
+            parentObj.AddComponent<MeshCombiner>();
             foreach (GameObject obj in objectsWithMeshFilter)
             {   
                 obj.transform.SetParent(parentObj.transform);
+                ObjectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
             }
-            parentObj.AddComponent<MeshCombiner>();
             MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
+            meshCombiner.DestroyCombinedChildren = true;
+            if (parentObj.GetComponent<Renderer>().materials.Length > 1) 
+            {
+                meshCombiner.CreateMultiMaterialMesh = true;
+            }
             meshCombiner.CombineMeshes(false);
             parentObj.name = "PARENT";
-            ObjectsInteractor.DeleteAllChildren(parentObj);
         }
     }
 
@@ -52,9 +57,9 @@ public class ObjectCombiner : MonoBehaviour
             }
             parentObj.AddComponent<MeshCombiner>();
             MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
+            meshCombiner.DestroyCombinedChildren = true;
             meshCombiner.CombineMeshes(false);
             parentObj.name = "PARENT_" + material.name;
-            ObjectsInteractor.DeleteAllChildren(parentObj);
         }
 
     }

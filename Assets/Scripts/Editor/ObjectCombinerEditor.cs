@@ -8,7 +8,6 @@ public class ObjectCombinerEditor : Editor
 {
     public override void OnInspectorGUI()
     {
-
         ObjectCombiner objectCombiner = (ObjectCombiner)target;
 
         objectCombiner.TrianglesLimit = EditorGUILayout.IntField("Polygons limit", objectCombiner.TrianglesLimit);

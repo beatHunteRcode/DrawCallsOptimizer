@@ -8,29 +8,29 @@ using System.Linq;
 
 public class ObjectCombiner : MonoBehaviour
 {
-    public int TrianglesLimit = 0;
+    public int trianglesLimit = 0;
 
-    private ObjectsInteractor ObjectsInteractor;
+    private ObjectsInteractor objectsInteractor;
 
     void Start()
     {
-        ObjectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
+        objectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
     }
 
     public void CombineAllSceneObjectsByTriangles()
     {
-        List<GameObject> allSceneObjects = ObjectsInteractor.GetAllGameObjectsOnScene().ToList();
+        List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
         List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
         int allObjectsPolygonsCount = CountAllObjectsPolygons(objectsWithMeshFilter);
 
-        if (allObjectsPolygonsCount >= TrianglesLimit)
+        if (allObjectsPolygonsCount >= trianglesLimit)
         {
             GameObject parentObj = new GameObject();
             parentObj.AddComponent<MeshCombiner>();
             foreach (GameObject obj in objectsWithMeshFilter)
             {   
                 obj.transform.SetParent(parentObj.transform);
-                ObjectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
+                objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
             }
             MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
             meshCombiner.DestroyCombinedChildren = true;
@@ -83,7 +83,7 @@ public class ObjectCombiner : MonoBehaviour
     private Dictionary<Material, List<GameObject>> MapMaterialsToObjectsOnScene()
     {
         Dictionary<Material, List<GameObject>> materialsToObjects = new();
-        List<GameObject> allSceneObjects = ObjectsInteractor.GetAllGameObjectsOnScene().ToList();
+        List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
         List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
         foreach (GameObject obj in objectsWithMeshFilter)
         {
@@ -113,7 +113,7 @@ public class ObjectCombiner : MonoBehaviour
     {
         int polygonsCount = 0;
         foreach (GameObject obj in objects) {
-            polygonsCount += ObjectsInteractor.GetTrianglesCount(obj);
+            polygonsCount += objectsInteractor.GetTrianglesCount(obj);
         }
         return polygonsCount;
     }

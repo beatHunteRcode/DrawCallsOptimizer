@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -10,7 +8,7 @@ public class ObjectCombinerEditor : Editor
     {
         ObjectCombiner objectCombiner = (ObjectCombiner)target;
 
-        objectCombiner.TrianglesLimit = EditorGUILayout.IntField("Polygons limit", objectCombiner.TrianglesLimit);
+        objectCombiner.trianglesLimit = EditorGUILayout.IntField("Polygons limit", objectCombiner.trianglesLimit);
 
         if (GUILayout.Button("Combine Objects by Polygons"))
         {

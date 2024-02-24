@@ -40,6 +40,7 @@ public class ObjectCombiner : MonoBehaviour
             }
             meshCombiner.CombineMeshes(false);
             parentObj.name = "PARENT";
+            Destroy(parentObj.GetComponent<MeshCombiner>());
         }
     }
 
@@ -60,8 +61,8 @@ public class ObjectCombiner : MonoBehaviour
             meshCombiner.DestroyCombinedChildren = true;
             meshCombiner.CombineMeshes(false);
             parentObj.name = "PARENT_" + material.name;
+            Destroy(parentObj.GetComponent<MeshCombiner>());
         }
-
     }
 
     private List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)

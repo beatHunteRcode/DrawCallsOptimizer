@@ -1,14 +1,14 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor;
 using System;
-using System.Runtime.CompilerServices;
 using System.Linq;
 
 public class ObjectCombiner : MonoBehaviour
 {
     public int trianglesLimit = 0;
+
+    [TagSelector]
+    public string[] tagsToCombine = new string[] {};
 
     private ObjectsInteractor objectsInteractor;
 
@@ -65,6 +65,33 @@ public class ObjectCombiner : MonoBehaviour
         }
     }
 
+    public void CombineAllSceneObjectsByTags()
+    {
+        Dictionary<string, List<GameObject>> tagsToObjects = MapTagsToObjectsOnScene();
+        foreach (KeyValuePair<string, List<GameObject>> tagAndObjects in tagsToObjects)
+        {
+            string tag = tagAndObjects.Key;
+            List<GameObject> gameObjects = tagAndObjects.Value;
+            GameObject parentObj = new GameObject();
+            parentObj.AddComponent<MeshCombiner>();
+            foreach (GameObject obj in gameObjects)
+            {
+                obj.transform.SetParent(parentObj.transform);
+                objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
+            }
+            MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
+            meshCombiner.DestroyCombinedChildren = true;
+            if (parentObj.GetComponent<Renderer>().materials.Length > 1)
+            {
+                meshCombiner.CreateMultiMaterialMesh = true;
+            }
+            meshCombiner.CombineMeshes(false);
+            parentObj.name = "PARENT_" + tag;
+            parentObj.tag = tag;
+            Destroy(parentObj.GetComponent<MeshCombiner>());
+        }
+    }
+
     private List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)
     {
         List<GameObject> objectsWithMeshFilter = new();
@@ -108,6 +135,36 @@ public class ObjectCombiner : MonoBehaviour
         }
         return materialsToObjects;
     }
+
+    private Dictionary<string, List<GameObject>> MapTagsToObjectsOnScene()
+    {
+        Dictionary<string, List<GameObject>> tagsToObjects = new();
+        List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
+        List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
+        foreach (GameObject obj in objectsWithMeshFilter)
+        {
+            string currentObjectTag = obj.tag;
+
+            if (!tagsToCombine.Contains(currentObjectTag))
+            {
+                continue;
+            }
+
+            if (tagsToObjects.ContainsKey(currentObjectTag))
+            {
+                List<GameObject> objectsWithCurrentTag = tagsToObjects[currentObjectTag];
+                objectsWithCurrentTag.Add(obj);
+            }
+            else
+            {
+                List<GameObject> objectsWithCurrentTag = new();
+                objectsWithCurrentTag.Add(obj);
+                tagsToObjects.Add(currentObjectTag, objectsWithCurrentTag);
+            }
+        }
+        return tagsToObjects;
+    }
+
 
     private int CountAllObjectsPolygons(List<GameObject> objects)
     {

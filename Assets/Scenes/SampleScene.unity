@@ -243,7 +243,7 @@ GameObject:
   - component: {fileID: 383867285}
   m_Layer: 0
   m_Name: Cylinder (2)
-  m_TagString: Untagged
+  m_TagString: Finish
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -489,7 +489,7 @@ GameObject:
   - component: {fileID: 773195737}
   m_Layer: 0
   m_Name: Cube
-  m_TagString: Untagged
+  m_TagString: Finish
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1009,7 +1009,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 660bfcac3d2feff40b273435a740abcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  TrianglesLimit: 100
+  trianglesLimit: 0
+  tagsToCombine:
+  - 
+  - 
 --- !u!1 &2032760860
 GameObject:
   m_ObjectHideFlags: 0
@@ -1025,7 +1028,7 @@ GameObject:
   - component: {fileID: 2032760861}
   m_Layer: 0
   m_Name: Cube (1)
-  m_TagString: Untagged
+  m_TagString: Finish
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

@@ -1,5 +1,7 @@
+using System;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 [CustomEditor(typeof(ObjectCombiner))]
 public class ObjectCombinerEditor : Editor
@@ -19,5 +21,15 @@ public class ObjectCombinerEditor : Editor
         {
             objectCombiner.CombineAllSceneObjectsByMaterials();
         }
+
+        SerializedProperty tagsToCombineProperty = serializedObject.FindProperty("tagsToCombine");
+        EditorGUILayout.PropertyField(tagsToCombineProperty, new GUIContent("Tags to Combine"));
+
+        if (GUILayout.Button("Combine Objects by Tags"))
+        { 
+            objectCombiner.CombineAllSceneObjectsByTags();
+        }
+
+        serializedObject.ApplyModifiedProperties();
     }
 }

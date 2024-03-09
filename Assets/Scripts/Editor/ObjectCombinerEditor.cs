@@ -9,6 +9,7 @@ public class ObjectCombinerEditor : Editor
     bool isCombineObjectsByPolygonsGroupOpened = false;
     bool isCombineObjectsByMaterialsGroupOpened = false;
     bool isCombineObjectsByTagsGroupOpened = false;
+    bool isCombineObjectsByDistanceGroupOpened = false;
 
     public override void OnInspectorGUI()
     {
@@ -19,6 +20,8 @@ public class ObjectCombinerEditor : Editor
         DrawCombineObjectsByMaterialsFoldoutGroup(objectCombiner);
         EditorGUILayout.Space();
         DrawCombineObjectsByTagsFoldoutGroup(objectCombiner);
+        EditorGUILayout.Space();
+        DrawCombineObjectsByDistanceFoldoutGroup(objectCombiner);
         EditorGUILayout.Space();
 
         serializedObject.ApplyModifiedProperties();
@@ -35,7 +38,7 @@ public class ObjectCombinerEditor : Editor
 
             if (GUILayout.Button("Combine Objects by Polygons"))
             {
-                objectCombiner.CombineAllSceneObjectsByTriangles();
+                objectCombiner.CombineObjectsByTriangles();
             }
         }
 
@@ -54,7 +57,7 @@ public class ObjectCombinerEditor : Editor
         {
             if (GUILayout.Button("Combine Objects by Materials"))
             {
-                objectCombiner.CombineAllSceneObjectsByMaterials();
+                objectCombiner.CombineObjectsByMaterials();
             }
         }
 
@@ -75,13 +78,36 @@ public class ObjectCombinerEditor : Editor
 
             if (GUILayout.Button("Combine Objects by Tags"))
             {
-                objectCombiner.CombineAllSceneObjectsByTags();
+                objectCombiner.CombineObjectsByTags();
             }
         }
 
         if (!Selection.activeTransform)
         {
             isCombineObjectsByTagsGroupOpened = false;
+        }
+    }
+
+    private void DrawCombineObjectsByDistanceFoldoutGroup(ObjectCombiner objectCombiner)
+    {
+        isCombineObjectsByDistanceGroupOpened = EditorGUILayout.Foldout(isCombineObjectsByDistanceGroupOpened, "Combine Objects by Distance");
+
+        if (isCombineObjectsByDistanceGroupOpened && Selection.activeTransform)
+        {
+            objectCombiner.distanceLimit = EditorGUILayout.FloatField("Disnance limit", objectCombiner.distanceLimit);
+
+            SerializedProperty collectionOfObjectsToCombineByDistance = serializedObject.FindProperty("collectionOfObjectsToCombineByDistance");
+            EditorGUILayout.PropertyField(collectionOfObjectsToCombineByDistance, new GUIContent("Collections of Objects to Combine"));
+
+            if (GUILayout.Button("Combine Objects by Distance"))
+            {
+                objectCombiner.CombineObjectsByDistance();
+            }
+        }
+
+        if (!Selection.activeTransform)
+        {
+            isCombineObjectsByDistanceGroupOpened = false;
         }
     }
 }

@@ -20,6 +20,19 @@ public class ObjectsInteractor : ScriptableObject
         return obj.GetComponent<MeshFilter>().sharedMesh.triangles.Count() / 3;
     }
 
+    public Transform[] GetChildrenRecursively(GameObject obj)
+    {
+        List<Transform> children = new List<Transform>();
+        foreach (Transform child in obj.transform.GetComponentsInChildren<Transform>())
+        {
+            if (!child.Equals(obj))
+            {
+                children.Add(child);
+            }
+        }
+        return children.ToArray();
+    }
+
     public void AddMaterialToObjectIfNeeded(Material newMaterial, GameObject obj)
     {
         Material[] allObjectMaterials = obj.GetComponent<Renderer>().materials;

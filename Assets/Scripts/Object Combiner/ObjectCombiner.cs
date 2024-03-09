@@ -2,13 +2,18 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using System.Linq;
+using System.Net.NetworkInformation;
 
 public class ObjectCombiner : MonoBehaviour
 {
     public int trianglesLimit = 0;
+    public float distanceLimit = 0f;
+
+    private const string PREFIX = "PARENT";
 
     [TagSelector]
     public string[] tagsToCombine = new string[] {};
+    public GameObject[] collectionOfObjectsToCombineByDistance = new GameObject[] {};
 
     private ObjectsInteractor objectsInteractor;
 
@@ -17,7 +22,7 @@ public class ObjectCombiner : MonoBehaviour
         objectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
     }
 
-    public void CombineAllSceneObjectsByTriangles()
+    public void CombineObjectsByTriangles()
     {
         List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
         List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
@@ -39,12 +44,12 @@ public class ObjectCombiner : MonoBehaviour
                 meshCombiner.CreateMultiMaterialMesh = true;
             }
             meshCombiner.CombineMeshes(false);
-            parentObj.name = "PARENT";
+            parentObj.name = PREFIX;
             Destroy(parentObj.GetComponent<MeshCombiner>());
         }
     }
 
-    public void CombineAllSceneObjectsByMaterials()
+    public void CombineObjectsByMaterials()
     {
         Dictionary<Material, List<GameObject>> materialsToObjects = MapMaterialsToObjectsOnScene();
         foreach (KeyValuePair<Material, List<GameObject>> materialAndObjects in materialsToObjects)
@@ -60,12 +65,12 @@ public class ObjectCombiner : MonoBehaviour
             MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
             meshCombiner.DestroyCombinedChildren = true;
             meshCombiner.CombineMeshes(false);
-            parentObj.name = "PARENT_" + material.name;
+            parentObj.name = PREFIX + "_" + material.name;
             Destroy(parentObj.GetComponent<MeshCombiner>());
         }
     }
 
-    public void CombineAllSceneObjectsByTags()
+    public void CombineObjectsByTags()
     {
         Dictionary<string, List<GameObject>> tagsToObjects = MapTagsToObjectsOnScene();
         foreach (KeyValuePair<string, List<GameObject>> tagAndObjects in tagsToObjects)
@@ -86,9 +91,59 @@ public class ObjectCombiner : MonoBehaviour
                 meshCombiner.CreateMultiMaterialMesh = true;
             }
             meshCombiner.CombineMeshes(false);
-            parentObj.name = "PARENT_" + tag;
+            parentObj.name = PREFIX + "_" + tag;
             parentObj.tag = tag;
             Destroy(parentObj.GetComponent<MeshCombiner>());
+        }
+    }
+
+    public void CombineObjectsByDistance()
+    {
+        foreach (GameObject collection in collectionOfObjectsToCombineByDistance)
+        {
+            bool hasAnyChildren = false;
+            GameObject parentObj = new GameObject();
+            parentObj.AddComponent<MeshCombiner>();
+            Transform[] children = objectsInteractor.GetChildrenRecursively(collection);
+            for (int i = 0; i < children.Length; i++)
+            {
+                Vector3 iChildrenPosition = children[i].position;
+                int isAllObjectsPositionsValidCount = 0;
+                for (int j = 0; j < children.Length; j++)
+                {
+                    Vector3 jChildrenPosition = children[j].position;
+                    if (Vector3.Distance(iChildrenPosition, jChildrenPosition) <= distanceLimit)
+                    {
+                        isAllObjectsPositionsValidCount++;
+                    }
+                }
+                if (isAllObjectsPositionsValidCount == children.Length)
+                {
+                    hasAnyChildren = true;
+                    children[i].SetParent(parentObj.transform);
+                    if (children[i].GetComponent<Renderer>() != null) 
+                    {
+                        objectsInteractor.AddMaterialToObjectIfNeeded(children[i].GetComponent<Renderer>().sharedMaterial, parentObj);
+                    }
+                }
+            }
+            if (hasAnyChildren)
+            {
+                MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
+                meshCombiner.DestroyCombinedChildren = true;
+                if (parentObj.GetComponent<Renderer>().materials.Length > 1)
+                {
+                    meshCombiner.CreateMultiMaterialMesh = true;
+                }
+                meshCombiner.CombineMeshes(false);
+                parentObj.name = PREFIX + "_" + collection.name + "_" + distanceLimit;
+                Destroy(parentObj.GetComponent<MeshCombiner>());
+                Destroy(collection);
+            } else
+            {
+                print("There is no GameObjects with valid distances between each other in " + collection.name);
+                Destroy(parentObj);
+            }
         }
     }
 
@@ -164,7 +219,6 @@ public class ObjectCombiner : MonoBehaviour
         }
         return tagsToObjects;
     }
-
 
     private int CountAllObjectsPolygons(List<GameObject> objects)
     {

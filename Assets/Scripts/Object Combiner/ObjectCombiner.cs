@@ -22,7 +22,7 @@ public class ObjectCombiner : MonoBehaviour
         objectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
     }
 
-    public void CombineObjectsByTriangles()
+    public void CombineObjectsByPolygons()
     {
         List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
         List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
@@ -31,13 +31,12 @@ public class ObjectCombiner : MonoBehaviour
         if (allObjectsPolygonsCount >= trianglesLimit)
         {
             GameObject parentObj = new GameObject();
-            parentObj.AddComponent<MeshCombiner>();
+            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
             foreach (GameObject obj in objectsWithMeshFilter)
             {   
                 obj.transform.SetParent(parentObj.transform);
                 objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
             }
-            MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
             meshCombiner.DestroyCombinedChildren = true;
             if (parentObj.GetComponent<Renderer>().materials.Length > 1) 
             {
@@ -45,7 +44,7 @@ public class ObjectCombiner : MonoBehaviour
             }
             meshCombiner.CombineMeshes(false);
             parentObj.name = PREFIX;
-            Destroy(parentObj.GetComponent<MeshCombiner>());
+            Destroy(meshCombiner);
         }
     }
 
@@ -61,12 +60,11 @@ public class ObjectCombiner : MonoBehaviour
             {
                 obj.transform.SetParent(parentObj.transform);
             }
-            parentObj.AddComponent<MeshCombiner>();
-            MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
+            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
             meshCombiner.DestroyCombinedChildren = true;
             meshCombiner.CombineMeshes(false);
             parentObj.name = PREFIX + "_" + material.name;
-            Destroy(parentObj.GetComponent<MeshCombiner>());
+            Destroy(meshCombiner);
         }
     }
 
@@ -78,13 +76,12 @@ public class ObjectCombiner : MonoBehaviour
             string tag = tagAndObjects.Key;
             List<GameObject> gameObjects = tagAndObjects.Value;
             GameObject parentObj = new GameObject();
-            parentObj.AddComponent<MeshCombiner>();
+            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
             foreach (GameObject obj in gameObjects)
             {
                 obj.transform.SetParent(parentObj.transform);
                 objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
             }
-            MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
             meshCombiner.DestroyCombinedChildren = true;
             if (parentObj.GetComponent<Renderer>().materials.Length > 1)
             {
@@ -93,7 +90,7 @@ public class ObjectCombiner : MonoBehaviour
             meshCombiner.CombineMeshes(false);
             parentObj.name = PREFIX + "_" + tag;
             parentObj.tag = tag;
-            Destroy(parentObj.GetComponent<MeshCombiner>());
+            Destroy(meshCombiner);
         }
     }
 
@@ -103,33 +100,27 @@ public class ObjectCombiner : MonoBehaviour
         {
             bool hasAnyChildren = false;
             GameObject parentObj = new GameObject();
-            parentObj.AddComponent<MeshCombiner>();
+            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
             Transform[] children = objectsInteractor.GetChildrenRecursively(collection);
-            for (int i = 0; i < children.Length; i++)
+            foreach (Transform iChild in children)
             {
-                Vector3 iChildrenPosition = children[i].position;
-                int isAllObjectsPositionsValidCount = 0;
-                for (int j = 0; j < children.Length; j++)
-                {
-                    Vector3 jChildrenPosition = children[j].position;
-                    if (Vector3.Distance(iChildrenPosition, jChildrenPosition) <= distanceLimit)
-                    {
-                        isAllObjectsPositionsValidCount++;
-                    }
-                }
+                Vector3 iChildPosition = iChild.position;
+                int isAllObjectsPositionsValidCount = children
+                    .Select(t => t.position)
+                    .Count(jChildrenPosition => Vector3.Distance(iChildPosition, jChildrenPosition) <= distanceLimit);
                 if (isAllObjectsPositionsValidCount == children.Length)
                 {
                     hasAnyChildren = true;
-                    children[i].SetParent(parentObj.transform);
-                    if (children[i].GetComponent<Renderer>() != null) 
+                    iChild.SetParent(parentObj.transform);
+                    Renderer childrenRenderer = iChild.GetComponent<Renderer>();
+                    if (childrenRenderer != null)
                     {
-                        objectsInteractor.AddMaterialToObjectIfNeeded(children[i].GetComponent<Renderer>().sharedMaterial, parentObj);
+                        objectsInteractor.AddMaterialToObjectIfNeeded(childrenRenderer.sharedMaterial, parentObj);
                     }
                 }
             }
             if (hasAnyChildren)
             {
-                MeshCombiner meshCombiner = parentObj.GetComponent<MeshCombiner>();
                 meshCombiner.DestroyCombinedChildren = true;
                 if (parentObj.GetComponent<Renderer>().materials.Length > 1)
                 {
@@ -137,7 +128,7 @@ public class ObjectCombiner : MonoBehaviour
                 }
                 meshCombiner.CombineMeshes(false);
                 parentObj.name = PREFIX + "_" + collection.name + "_" + distanceLimit;
-                Destroy(parentObj.GetComponent<MeshCombiner>());
+                Destroy(meshCombiner);
                 Destroy(collection);
             } else
             {
@@ -149,17 +140,7 @@ public class ObjectCombiner : MonoBehaviour
 
     private List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)
     {
-        List<GameObject> objectsWithMeshFilter = new();
-
-        foreach (GameObject obj in incomingObjects)
-        {
-            if (obj.GetComponent<MeshFilter>() != null)
-            {
-                objectsWithMeshFilter.Add(obj);
-            }
-        }
-
-        return objectsWithMeshFilter;
+        return incomingObjects.Where(obj => obj.GetComponent<MeshFilter>() != null).ToList();
     }
 
     private Dictionary<Material, List<GameObject>> MapMaterialsToObjectsOnScene()
@@ -205,14 +186,15 @@ public class ObjectCombiner : MonoBehaviour
                 continue;
             }
 
-            if (tagsToObjects.ContainsKey(currentObjectTag))
+
+            tagsToObjects.TryGetValue(currentObjectTag, out List<GameObject> objectsWithCurrentTag);
+            if (objectsWithCurrentTag != null)
             {
-                List<GameObject> objectsWithCurrentTag = tagsToObjects[currentObjectTag];
                 objectsWithCurrentTag.Add(obj);
             }
             else
             {
-                List<GameObject> objectsWithCurrentTag = new();
+                objectsWithCurrentTag = new();
                 objectsWithCurrentTag.Add(obj);
                 tagsToObjects.Add(currentObjectTag, objectsWithCurrentTag);
             }
@@ -222,11 +204,7 @@ public class ObjectCombiner : MonoBehaviour
 
     private int CountAllObjectsPolygons(List<GameObject> objects)
     {
-        int polygonsCount = 0;
-        foreach (GameObject obj in objects) {
-            polygonsCount += objectsInteractor.GetTrianglesCount(obj);
-        }
-        return polygonsCount;
+        return objects.Sum(obj => objectsInteractor.GetTrianglesCount(obj));
     }
 
 }

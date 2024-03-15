@@ -45,7 +45,7 @@ public class ObjectCombinerEditor : Editor
 
             if (GUILayout.Button("Combine Objects by Polygons"))
             {
-                objectCombiner.CombineObjectsByTriangles();
+                objectCombiner.CombineObjectsByPolygons();
             }
         }
 

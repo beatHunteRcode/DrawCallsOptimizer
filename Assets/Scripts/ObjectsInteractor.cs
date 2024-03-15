@@ -17,20 +17,12 @@ public class ObjectsInteractor : ScriptableObject
 
     public int GetTrianglesCount(GameObject obj)
     {
-        return obj.GetComponent<MeshFilter>().sharedMesh.triangles.Count() / 3;
+        return obj.GetComponent<MeshFilter>().sharedMesh.triangles.Count();
     }
 
     public Transform[] GetChildrenRecursively(GameObject obj)
     {
-        List<Transform> children = new List<Transform>();
-        foreach (Transform child in obj.transform.GetComponentsInChildren<Transform>())
-        {
-            if (!child.Equals(obj))
-            {
-                children.Add(child);
-            }
-        }
-        return children.ToArray();
+        return obj.transform.GetComponentsInChildren<Transform>().Where(child => !child.Equals(obj.transform)).ToArray();
     }
 
     public void AddMaterialToObjectIfNeeded(Material newMaterial, GameObject obj)

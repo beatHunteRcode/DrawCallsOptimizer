@@ -35,7 +35,7 @@ public class ObjectCombinerEditor : Editor
 
         if (isCombineObjectsByPolygonsGroupOpened && Selection.activeTransform)
         {
-            EditorGUILayout.HelpBox("Combines all objects on scene if sum of all objects polygons (triangles) are greater than Polygons limit\n" +
+            EditorGUILayout.HelpBox("Combines all objects on scene if sum of all objects polygons (triangles) are greater than Polygons limit\n\n" +
                 "1. Enter polygons limit\n" +
                 "2. Hit \"Combine Objects by Polygons\" button", 
                 MessageType.Info);
@@ -62,7 +62,7 @@ public class ObjectCombinerEditor : Editor
 
         if (isCombineObjectsByMaterialsGroupOpened && Selection.activeTransform)
         {
-            EditorGUILayout.HelpBox("All objects with specific materials will combine in one GameObject\n" +
+            EditorGUILayout.HelpBox("All objects with specific materials will combine in one GameObject\n\n" +
                 "1. Hit \"Combine Objects by Materials\" button",
                 MessageType.Info);
 
@@ -84,7 +84,7 @@ public class ObjectCombinerEditor : Editor
 
         if (isCombineObjectsByTagsGroupOpened && Selection.activeTransform)
         {
-            EditorGUILayout.HelpBox("All objects with specific tag will combine in one GameObject\n" +
+            EditorGUILayout.HelpBox("All objects with specific tag will combine in one GameObject\n\n" +
                 "1. Enter amount of Tags to combine\n" +
                 "2. Select each specific Tag\n" +
                 "3. Hit \"Combine Objects by Tags\" button",
@@ -111,7 +111,7 @@ public class ObjectCombinerEditor : Editor
 
         if (isCombineObjectsByDistanceGroupOpened && Selection.activeTransform)
         {
-            EditorGUILayout.HelpBox("Combines all child-objects in specific GameObject-collections if distances between all child-objects pivots in collection are lesser than Distance limit\n" +
+            EditorGUILayout.HelpBox("Combines all child-objects in specific GameObject-collections if distances between all child-objects pivots in collection are lesser or equals Distance limit\n\n" +
                 "1. Enter Distance limit\n" +
                 "2. Enter amount of collections to work with\n" +
                 "3. Select each specific collection (or Drag'n'Drop )\n" +

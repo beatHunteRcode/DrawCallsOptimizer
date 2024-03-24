@@ -98,43 +98,52 @@ public class ObjectCombiner : MonoBehaviour
     {
         foreach (GameObject collection in collectionOfObjectsToCombineByDistance)
         {
-            bool hasAnyChildren = false;
-            GameObject parentObj = new GameObject();
-            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
-            Transform[] children = objectsInteractor.GetChildrenRecursively(collection);
-            foreach (Transform iChild in children)
+            int iterationNumber = 0;
+            while (objectsInteractor.GetChildrenRecursively(collection).Length > 0)
             {
-                Vector3 iChildPosition = iChild.position;
-                int isAllObjectsPositionsValidCount = children
-                    .Select(t => t.position)
-                    .Count(jChildrenPosition => Vector3.Distance(iChildPosition, jChildrenPosition) <= distanceLimit);
-                if (isAllObjectsPositionsValidCount == children.Length)
+                iterationNumber++;
+                GameObjectsGraph graph = objectsInteractor.CreateValidGameObjectsGraph(collection, distanceLimit);
+
+                GameObjectsGraph.Node nodeWithMaxValidNeighbors = null;
+                foreach (GameObjectsGraph.Node node in graph.Nodes)
                 {
-                    hasAnyChildren = true;
-                    iChild.SetParent(parentObj.transform);
-                    Renderer childrenRenderer = iChild.GetComponent<Renderer>();
-                    if (childrenRenderer != null)
+                    if (nodeWithMaxValidNeighbors == null)
                     {
-                        objectsInteractor.AddMaterialToObjectIfNeeded(childrenRenderer.sharedMaterial, parentObj);
+                        nodeWithMaxValidNeighbors = node;
+                    }
+                    if (node.NeighboursWithValidDistances.Count > nodeWithMaxValidNeighbors.NeighboursWithValidDistances.Count)
+                    {
+                        nodeWithMaxValidNeighbors = node;
                     }
                 }
-            }
-            if (hasAnyChildren)
-            {
+
+                if (nodeWithMaxValidNeighbors == null)
+                {
+                    print("There is no GameObjects with valid distances between each other in " + collection.name);
+                    return;
+                }
+
+                GameObject parentObj = new GameObject();
+                MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
+                nodeWithMaxValidNeighbors.GameObject.transform.SetParent(parentObj.transform);
+
+                foreach (KeyValuePair<GameObjectsGraph.Node, GameObjectsGraph.Edge> nodeWithDistance in nodeWithMaxValidNeighbors.NeighboursWithValidDistances)
+                {
+                    GameObjectsGraph.Node node = nodeWithDistance.Key;
+                    node.GameObject.transform.SetParent(parentObj.transform);
+                    objectsInteractor.AddMaterialToObjectIfNeeded(node.GameObject.GetComponent<Renderer>().sharedMaterial, parentObj);
+                }
+
                 meshCombiner.DestroyCombinedChildren = true;
                 if (parentObj.GetComponent<Renderer>().materials.Length > 1)
                 {
                     meshCombiner.CreateMultiMaterialMesh = true;
                 }
                 meshCombiner.CombineMeshes(false);
-                parentObj.name = PREFIX + "_" + collection.name + "_" + distanceLimit;
+                parentObj.name = iterationNumber + "_" + PREFIX + "_" + collection.name + "_" + distanceLimit;
                 Destroy(meshCombiner);
-                Destroy(collection);
-            } else
-            {
-                print("There is no GameObjects with valid distances between each other in " + collection.name);
-                Destroy(parentObj);
             }
+            Destroy(collection);
         }
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class ObjectsInteractor : ScriptableObject
@@ -43,5 +44,31 @@ public class ObjectsInteractor : ScriptableObject
         Material[] result = new Material[set.Count];
         set.CopyTo(result);
         return result;
+    }
+
+    public GameObjectsGraph CreateValidGameObjectsGraph(GameObject collection, float distanceLimit)
+    {
+        GameObjectsGraph graph = new GameObjectsGraph();
+        Transform[] children = GetChildrenRecursively(collection);
+        foreach (Transform iChild in children)
+        {
+            GameObjectsGraph.Node node = new GameObjectsGraph.Node(iChild);
+            foreach (Transform jChild in children)
+            {
+                if (iChild == jChild)
+                {
+                    continue;
+                }
+
+                float distanceBetweenObjects = Vector3.Distance(iChild.position, jChild.position);
+
+                if (distanceBetweenObjects <= distanceLimit)
+                {
+                    node.NeighboursWithValidDistances.Add(new GameObjectsGraph.Node(jChild), new GameObjectsGraph.Edge(distanceBetweenObjects));
+                }
+            }
+            graph.Nodes.Add(node);
+        }
+        return graph;
     }
 }

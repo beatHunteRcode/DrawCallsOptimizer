@@ -111,7 +111,7 @@ public class ObjectCombinerEditor : Editor
 
         if (isCombineObjectsByDistanceGroupOpened && Selection.activeTransform)
         {
-            EditorGUILayout.HelpBox("Combines all child-objects in specific GameObject-collection if distances between all chils-objects pivots in collection are greater than Distance limit\n" +
+            EditorGUILayout.HelpBox("Combines all child-objects in specific GameObject-collections if distances between all child-objects pivots in collection are lesser than Distance limit\n" +
                 "1. Enter Distance limit\n" +
                 "2. Enter amount of collections to work with\n" +
                 "3. Select each specific collection (or Drag'n'Drop )\n" +

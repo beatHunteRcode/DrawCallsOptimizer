@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
@@ -9,6 +10,25 @@ public class ObjectsInteractor : ScriptableObject
     public GameObject[] GetAllGameObjectsOnScene()
     {
         return FindObjectsOfType<GameObject>();
+    }
+
+    public List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)
+    {
+        return incomingObjects.Where(obj => obj.GetComponent<MeshFilter>() != null).ToList();
+    }
+
+    public Bounds GetSceneBounds()
+    {
+        List<GameObject> allSceneObjects = GetAllObjectsWithMeshFilter(GetAllGameObjectsOnScene().ToList());
+
+        Bounds sceneBounds = new Bounds(Vector3.zero, Vector3.zero);
+        foreach (GameObject obj in allSceneObjects)
+        {
+            Bounds objBounds = obj.GetComponent<Renderer>().bounds;
+            sceneBounds.Encapsulate(objBounds);
+        }
+
+        return sceneBounds;
     }
 
     public int GetVerticesCount(GameObject obj)

@@ -25,7 +25,7 @@ public class ObjectCombiner : MonoBehaviour
     public void CombineObjectsByPolygons()
     {
         List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
-        List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
+        List<GameObject> objectsWithMeshFilter = objectsInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         int allObjectsPolygonsCount = CountAllObjectsPolygons(objectsWithMeshFilter);
 
         if (allObjectsPolygonsCount >= trianglesLimit)
@@ -147,16 +147,11 @@ public class ObjectCombiner : MonoBehaviour
         }
     }
 
-    private List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)
-    {
-        return incomingObjects.Where(obj => obj.GetComponent<MeshFilter>() != null).ToList();
-    }
-
     private Dictionary<Material, List<GameObject>> MapMaterialsToObjectsOnScene()
     {
         Dictionary<Material, List<GameObject>> materialsToObjects = new();
         List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
-        List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
+        List<GameObject> objectsWithMeshFilter = objectsInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         foreach (GameObject obj in objectsWithMeshFilter)
         {
             Material currentObjectMaterial = obj.GetComponent<Renderer>().sharedMaterial;
@@ -185,7 +180,7 @@ public class ObjectCombiner : MonoBehaviour
     {
         Dictionary<string, List<GameObject>> tagsToObjects = new();
         List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
-        List<GameObject> objectsWithMeshFilter = GetAllObjectsWithMeshFilter(allSceneObjects);
+        List<GameObject> objectsWithMeshFilter = objectsInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         foreach (GameObject obj in objectsWithMeshFilter)
         {
             string currentObjectTag = obj.tag;

@@ -10,13 +10,21 @@ public class SceneAnalyserEditor : Editor
 
         DrawCreateSceneBoundsObjectGroup(sceneAnalyser);
         EditorGUILayout.Space();
+
+        serializedObject.ApplyModifiedProperties();
     }
 
     private void DrawCreateSceneBoundsObjectGroup(SceneAnalyser sceneAnalyser)
     {
+        sceneAnalyser.SectionCount = EditorGUILayout.Vector3IntField("Chunks Count", sceneAnalyser.SectionCount);
+
         if (GUILayout.Button("Create SceneBounds GameObject"))
         {
-            sceneAnalyser.CreateSceneBoundsObject();
+            GameObject boundsCube = sceneAnalyser.CreateSceneBoundsObject();
+            if (sceneAnalyser.SectionCount != Vector3Int.zero)
+            {
+                sceneAnalyser.DivideIntoChunks(boundsCube);
+            }
         }
     }
 }

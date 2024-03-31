@@ -6,7 +6,7 @@ public class SceneInteractor
 {
     ObjectsInteractor objectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
 
-    public void CreateSceneBoundsObject()
+    public GameObject CreateSceneBoundsObject()
     {
         GameObject gameObject = new GameObject();
         gameObject.name = "SceneBounds";
@@ -14,5 +14,6 @@ public class SceneInteractor
         Bounds sceneBounds = objectsInteractor.GetSceneBounds();
         gameObject.transform.position = sceneBounds.center;
         gameObject.transform.localScale = sceneBounds.size;
+        return gameObject;
     }
 }

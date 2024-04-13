@@ -3,106 +3,233 @@ using UnityEngine;
 using System;
 using System.Linq;
 using System.Net.NetworkInformation;
+using System.Xml;
+using System.Collections.ObjectModel;
 
-public class ObjectCombiner : MonoBehaviour
+public class ObjectCombiner : ScriptableObject
 {
-    public int trianglesLimit = 0;
-    public float distanceLimit = 0f;
-
-    private const string PREFIX = "PARENT";
-
-    [TagSelector]
-    public string[] tagsToCombine = new string[] {};
-    public GameObject[] collectionOfObjectsToCombineByDistance = new GameObject[] {};
-
+    private SceneInteractor sceneInteractor;
     private ObjectsInteractor objectsInteractor;
 
-    void Start()
+    public void Init()
     {
-        objectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
+        sceneInteractor = CreateInstance<SceneInteractor>();
+        objectsInteractor = CreateInstance<ObjectsInteractor>();
     }
 
-    public void CombineObjectsByPolygons()
+    public GameObject CombineObjectsByPolygons(List<GameObject> objects = null, int objectsPolygonsThreshold = 0, bool isSaveObjectsNeeded = false)
     {
-        List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
-        List<GameObject> objectsWithMeshFilter = objectsInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
-        int allObjectsPolygonsCount = CountAllObjectsPolygons(objectsWithMeshFilter);
+        GameObject parentObj = null;
 
-        if (allObjectsPolygonsCount >= trianglesLimit)
+        if (objects == null)
         {
-            GameObject parentObj = new GameObject();
+            List<GameObject> allSceneObjects = sceneInteractor.GetAllGameObjectsOnScene().ToList();
+            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+        }
+        int allObjectsPolygonsCount = CountAllObjectsPolygons(objects);
+
+        if (allObjectsPolygonsCount >= objectsPolygonsThreshold)
+        {
+            parentObj = new();
             MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
-            foreach (GameObject obj in objectsWithMeshFilter)
-            {   
-                obj.transform.SetParent(parentObj.transform);
-                objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
+            foreach (GameObject obj in objects)
+            {
+                GameObject cloneObject;
+                if (isSaveObjectsNeeded)
+                {
+                    cloneObject = sceneInteractor.DeactivateObjectAndGetClone(obj);
+                }
+                else
+                {
+                    cloneObject = obj;
+                }
+                cloneObject.transform.SetParent(parentObj.transform);
+                objectsInteractor.AddMaterialToObjectIfNeeded(cloneObject.GetComponent<Renderer>().sharedMaterial, parentObj);
             }
             meshCombiner.DestroyCombinedChildren = true;
-            if (parentObj.GetComponent<Renderer>().materials.Length > 1) 
+            if (parentObj.GetComponent<Renderer>().sharedMaterials.Length > 1) 
             {
                 meshCombiner.CreateMultiMaterialMesh = true;
             }
             meshCombiner.CombineMeshes(false);
-            parentObj.name = PREFIX;
-            Destroy(meshCombiner);
+            DestroyImmediate(meshCombiner);
         }
+
+        return parentObj;
     }
 
-    public void CombineObjectsByMaterials()
+    public List<GameObject> CombineObjectsByMaterials(int objectsWithSameMaterialThreshold, List<GameObject> objects = null, bool isSaveObjectsNeeded = false)
     {
-        Dictionary<Material, List<GameObject>> materialsToObjects = MapMaterialsToObjectsOnScene();
+        List<GameObject> parentObjList = new();
+
+        if (objects == null) {
+            List<GameObject> allSceneObjects = sceneInteractor.GetAllGameObjectsOnScene().ToList();
+            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+        }
+
+        Dictionary<Material, List<GameObject>> materialsToObjects = MapMaterialsToObjects(objects);
         foreach (KeyValuePair<Material, List<GameObject>> materialAndObjects in materialsToObjects)
         {
-            Material material = materialAndObjects.Key;
-            List<GameObject> gameObjects = materialAndObjects.Value;
-            GameObject parentObj = new GameObject();
-            foreach (GameObject obj in gameObjects)
+            if (materialAndObjects.Value.Count >= objectsWithSameMaterialThreshold)
             {
-                obj.transform.SetParent(parentObj.transform);
+                GameObject parentObj = new();
+                List<GameObject> gameObjects = materialAndObjects.Value;
+                foreach (GameObject obj in gameObjects)
+                {
+                    GameObject cloneObject;
+                    if (isSaveObjectsNeeded)
+                    {
+                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(obj);
+                    }
+                    else
+                    {
+                        cloneObject = obj;
+                    }
+                    cloneObject.transform.SetParent(parentObj.transform);
+                }
+                MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
+                meshCombiner.DestroyCombinedChildren = true;
+                meshCombiner.CombineMeshes(false);
+                DestroyImmediate(meshCombiner);
+                parentObjList.Add(parentObj);
             }
-            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
-            meshCombiner.DestroyCombinedChildren = true;
-            meshCombiner.CombineMeshes(false);
-            parentObj.name = PREFIX + "_" + material.name;
-            Destroy(meshCombiner);
         }
+
+        return parentObjList;
     }
 
-    public void CombineObjectsByTags()
+    public List<GameObject> CombineObjectsByTags(string[] tagsToCombine, List<GameObject> objects = null, bool isSaveObjectsNeeded = false)
     {
-        Dictionary<string, List<GameObject>> tagsToObjects = MapTagsToObjectsOnScene();
+        List<GameObject> parentObjList = new();
+
+        if (objects == null)
+        {
+            List<GameObject> allSceneObjects = sceneInteractor.GetAllGameObjectsOnScene().ToList();
+            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+        }
+
+        Dictionary<string, List<GameObject>> tagsToObjects = MapTagsToObjectsOnScene(tagsToCombine, objects);
         foreach (KeyValuePair<string, List<GameObject>> tagAndObjects in tagsToObjects)
         {
             string tag = tagAndObjects.Key;
             List<GameObject> gameObjects = tagAndObjects.Value;
-            GameObject parentObj = new GameObject();
-            MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
-            foreach (GameObject obj in gameObjects)
+            if (gameObjects.Count > 1)
             {
-                obj.transform.SetParent(parentObj.transform);
-                objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
+                GameObject parentObj = new();
+                MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
+                foreach (GameObject obj in gameObjects)
+                {
+                    GameObject cloneObject;
+                    if (isSaveObjectsNeeded)
+                    {
+                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(obj);
+                    }
+                    else
+                    {
+                        cloneObject = obj;
+                    }
+                    cloneObject.transform.SetParent(parentObj.transform);
+                    objectsInteractor.AddMaterialToObjectIfNeeded(obj.GetComponent<Renderer>().sharedMaterial, parentObj);
+                }
+                meshCombiner.DestroyCombinedChildren = true;
+                if (parentObj.GetComponent<Renderer>().sharedMaterials.Length > 1)
+                {
+                    meshCombiner.CreateMultiMaterialMesh = true;
+                }
+                meshCombiner.CombineMeshes(false);
+                parentObj.tag = tag;
+                DestroyImmediate(meshCombiner);
+                parentObjList.Add(parentObj);
             }
-            meshCombiner.DestroyCombinedChildren = true;
-            if (parentObj.GetComponent<Renderer>().materials.Length > 1)
-            {
-                meshCombiner.CreateMultiMaterialMesh = true;
-            }
-            meshCombiner.CombineMeshes(false);
-            parentObj.name = PREFIX + "_" + tag;
-            parentObj.tag = tag;
-            Destroy(meshCombiner);
         }
+
+        return parentObjList;
     }
 
-    public void CombineObjectsByDistance()
+    public List<GameObject> CombineObjectsByDistance(float distanceLimit, List<GameObject> objects = null, bool isSaveObjectsNeeded = false)
     {
-        foreach (GameObject collection in collectionOfObjectsToCombineByDistance)
+        List<GameObject> parentObjList = new();
+        List<Transform> objectsTransforms = new();
+
+        foreach (GameObject obj in objects)
+        {
+            try
+            {
+                Transform objTransform = obj.transform;
+                objectsTransforms.Add(objTransform);
+            }
+            catch (MissingReferenceException)
+            {
+                continue;
+            }
+        }
+
+        while (objectsTransforms.Count > 1)
+        {
+            GameObjectsGraph graph = objectsInteractor.CreateValidGameObjectsGraph(objectsTransforms.ToArray(), distanceLimit);
+
+            GameObjectsGraph.Node nodeWithMaxValidNeighbors = null;
+            foreach (GameObjectsGraph.Node node in graph.Nodes)
+            {
+                if (nodeWithMaxValidNeighbors == null)
+                {
+                    nodeWithMaxValidNeighbors = node;
+                }
+                if (node.NeighboursWithValidDistances.Count > nodeWithMaxValidNeighbors.NeighboursWithValidDistances.Count)
+                {
+                    nodeWithMaxValidNeighbors = node;
+                }
+            }
+
+            if (nodeWithMaxValidNeighbors != null)
+            {
+                GameObject parentObj = new GameObject();
+                MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
+                nodeWithMaxValidNeighbors.GameObject.transform.SetParent(parentObj.transform);
+
+                foreach (KeyValuePair<GameObjectsGraph.Node, GameObjectsGraph.Edge> nodeWithDistance in nodeWithMaxValidNeighbors.NeighboursWithValidDistances)
+                {
+                    GameObjectsGraph.Node node = nodeWithDistance.Key;
+                    GameObject cloneObject;
+                    if (isSaveObjectsNeeded)
+                    {
+                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(node.GameObject.gameObject);
+                    }
+                    else
+                    {
+                        cloneObject = node.GameObject.gameObject;
+                    }
+                    cloneObject.transform.SetParent(parentObj.transform);
+                    objectsInteractor.AddMaterialToObjectIfNeeded(cloneObject.GetComponent<Renderer>().sharedMaterial, parentObj);
+                    objectsTransforms.Remove(node.GameObject.transform);
+                }
+
+                meshCombiner.DestroyCombinedChildren = true;
+                if (parentObj.GetComponent<Renderer>().sharedMaterials.Length > 1)
+                {
+                    meshCombiner.CreateMultiMaterialMesh = true;
+                }
+                meshCombiner.CombineMeshes(false);
+                DestroyImmediate(meshCombiner);
+                parentObjList.Add(parentObj);
+            }
+            objectsTransforms = objectsTransforms.Where(objTransform => objTransform != null).ToList();
+        }
+
+        return parentObjList;
+    }
+
+    public List<GameObject> CombineCollectionsOfObjectsByDistance(float distanceLimit, GameObject[] collectionsOfObjectsToCombineByDistance, bool isSaveObjectsNeeded = false)
+    {
+        List<GameObject> parentObjList = new();
+
+        foreach (GameObject collection in collectionsOfObjectsToCombineByDistance)
         {
             int iterationNumber = 0;
             while (objectsInteractor.GetChildrenRecursively(collection).Length > 0)
             {
                 iterationNumber++;
-                GameObjectsGraph graph = objectsInteractor.CreateValidGameObjectsGraph(collection, distanceLimit);
+                GameObjectsGraph graph = objectsInteractor.CreateValidGameObjectsGraphFromCollection(collection, distanceLimit);
 
                 GameObjectsGraph.Node nodeWithMaxValidNeighbors = null;
                 foreach (GameObjectsGraph.Node node in graph.Nodes)
@@ -117,12 +244,6 @@ public class ObjectCombiner : MonoBehaviour
                     }
                 }
 
-                if (nodeWithMaxValidNeighbors == null)
-                {
-                    print("There is no GameObjects with valid distances between each other in " + collection.name);
-                    return;
-                }
-
                 GameObject parentObj = new GameObject();
                 MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
                 nodeWithMaxValidNeighbors.GameObject.transform.SetParent(parentObj.transform);
@@ -130,8 +251,17 @@ public class ObjectCombiner : MonoBehaviour
                 foreach (KeyValuePair<GameObjectsGraph.Node, GameObjectsGraph.Edge> nodeWithDistance in nodeWithMaxValidNeighbors.NeighboursWithValidDistances)
                 {
                     GameObjectsGraph.Node node = nodeWithDistance.Key;
-                    node.GameObject.transform.SetParent(parentObj.transform);
-                    objectsInteractor.AddMaterialToObjectIfNeeded(node.GameObject.GetComponent<Renderer>().sharedMaterial, parentObj);
+                    GameObject cloneObject;
+                    if (isSaveObjectsNeeded)
+                    {
+                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(node.GameObject.gameObject);
+                    }
+                    else
+                    {
+                        cloneObject = node.GameObject.gameObject;
+                    }
+                    cloneObject.transform.SetParent(parentObj.transform);
+                    objectsInteractor.AddMaterialToObjectIfNeeded(cloneObject.GetComponent<Renderer>().sharedMaterial, parentObj);
                 }
 
                 meshCombiner.DestroyCombinedChildren = true;
@@ -140,18 +270,18 @@ public class ObjectCombiner : MonoBehaviour
                     meshCombiner.CreateMultiMaterialMesh = true;
                 }
                 meshCombiner.CombineMeshes(false);
-                parentObj.name = iterationNumber + "_" + PREFIX + "_" + collection.name + "_" + distanceLimit;
                 Destroy(meshCombiner);
+                parentObjList.Add(parentObj);
             }
             Destroy(collection);
         }
+
+        return parentObjList;
     }
 
-    private Dictionary<Material, List<GameObject>> MapMaterialsToObjectsOnScene()
+    public Dictionary<Material, List<GameObject>> MapMaterialsToObjects(List<GameObject> objectsWithMeshFilter)
     {
         Dictionary<Material, List<GameObject>> materialsToObjects = new();
-        List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
-        List<GameObject> objectsWithMeshFilter = objectsInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         foreach (GameObject obj in objectsWithMeshFilter)
         {
             Material currentObjectMaterial = obj.GetComponent<Renderer>().sharedMaterial;
@@ -176,31 +306,36 @@ public class ObjectCombiner : MonoBehaviour
         return materialsToObjects;
     }
 
-    private Dictionary<string, List<GameObject>> MapTagsToObjectsOnScene()
+    private Dictionary<string, List<GameObject>> MapTagsToObjectsOnScene(string[] tagsToCombine, List<GameObject> objectsWithMeshFilter)
     {
         Dictionary<string, List<GameObject>> tagsToObjects = new();
-        List<GameObject> allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene().ToList();
-        List<GameObject> objectsWithMeshFilter = objectsInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         foreach (GameObject obj in objectsWithMeshFilter)
         {
-            string currentObjectTag = obj.tag;
+            try
+            {
+                string currentObjectTag = obj.tag;
 
-            if (!tagsToCombine.Contains(currentObjectTag))
+                if (!tagsToCombine.Contains(currentObjectTag))
+                {
+                    continue;
+                }
+
+
+                tagsToObjects.TryGetValue(currentObjectTag, out List<GameObject> objectsWithCurrentTag);
+                if (objectsWithCurrentTag != null)
+                {
+                    objectsWithCurrentTag.Add(obj);
+                }
+                else
+                {
+                    objectsWithCurrentTag = new();
+                    objectsWithCurrentTag.Add(obj);
+                    tagsToObjects.Add(currentObjectTag, objectsWithCurrentTag);
+                }
+            }
+            catch (MissingReferenceException)
             {
                 continue;
-            }
-
-
-            tagsToObjects.TryGetValue(currentObjectTag, out List<GameObject> objectsWithCurrentTag);
-            if (objectsWithCurrentTag != null)
-            {
-                objectsWithCurrentTag.Add(obj);
-            }
-            else
-            {
-                objectsWithCurrentTag = new();
-                objectsWithCurrentTag.Add(obj);
-                tagsToObjects.Add(currentObjectTag, objectsWithCurrentTag);
             }
         }
         return tagsToObjects;
@@ -208,7 +343,18 @@ public class ObjectCombiner : MonoBehaviour
 
     private int CountAllObjectsPolygons(List<GameObject> objects)
     {
-        return objects.Sum(obj => objectsInteractor.GetTrianglesCount(obj));
+        int polygonsCount = 0;
+
+        try
+        {
+            polygonsCount = objects.Sum(obj => objectsInteractor.GetTrianglesCount(obj));
+        }
+        catch (MissingReferenceException)
+        {
+            // ignored
+        }
+
+        return polygonsCount;
     }
 
 }

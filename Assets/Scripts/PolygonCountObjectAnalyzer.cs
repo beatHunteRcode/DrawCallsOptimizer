@@ -3,10 +3,12 @@ using UnityEngine;
 
 public class PolygonCountObjectAnalyzer : MonoBehaviour
 {
+    SceneInteractor sceneInteractor;
     ObjectsInteractor objectsInteractor;
 
     void Start()
     {
+        sceneInteractor = ScriptableObject.CreateInstance<SceneInteractor>();
         objectsInteractor = ScriptableObject.CreateInstance<ObjectsInteractor>();
 
         //GameObject[] allSceneObjects = objectsInteractor.GetAllGameObjectsOnScene();
@@ -35,7 +37,7 @@ public class PolygonCountObjectAnalyzer : MonoBehaviour
         GameObject gameObject = new GameObject();
         gameObject.name = "SceneBounds";
         gameObject.AddComponent<BoxCollider>();
-        Bounds sceneBounds = objectsInteractor.GetSceneBounds();
+        Bounds sceneBounds = sceneInteractor.GetSceneBounds();
         gameObject.transform.position = sceneBounds.center;
         gameObject.transform.localScale = sceneBounds.size;
     }

@@ -1,62 +1,80 @@
+using System;
 using UnityEngine;
 
+[ExecuteInEditMode]
 public class SceneAnalyser : MonoBehaviour
 {
     SceneInteractor sceneInteractor;
 
-    public Vector3Int SectionCount;
+    public bool combineObjectsByPolygonsNeeded = false;
+    public bool combineObjectsByMaterialsNeeded = false;
+    public bool combineObjectsByTagsNeeded = false;
+    public bool combineObjectsByDistanceNeeded = false;
+
+    public Vector3Int sectionCount;
+
+    public int chunkObjectsPolygonsThreshold;
+
+    public int chunkObjectsWithSameMaterialThreshold;
+
+    [TagSelector]
+    public string[] tagsToCombine = new string[] { };
+
+    public float distanceLimit = 0f;
+    public GameObject[] collectionsOfObjectsToCombineByDistance = new GameObject[] { };
+
+    public Material chunkMaterial;
+
+    public bool destroySceneBoundsObjectAfterOptimizations = true;
+    public bool saveAnalyzedObjectsBeforeOptimizations = true;
 
     void Start()
     {
-        sceneInteractor = new SceneInteractor();
+        sceneInteractor = ScriptableObject.CreateInstance<SceneInteractor>();
+        sceneInteractor.Init();
     }
 
-    public GameObject CreateSceneBoundsObject()
+    public void OptimizeObjectsOnScene()
+    {
+        GameObject boundsCube = CreateSceneBoundsObject();
+        sceneInteractor.DivideIntoChunks(boundsCube, sectionCount, chunkMaterial);
+        sceneInteractor.MapObjectsToChunks();
+        PerformOptimizations(saveAnalyzedObjectsBeforeOptimizations);
+        if (destroySceneBoundsObjectAfterOptimizations)
+        {
+            DestroyImmediate(boundsCube);
+        }
+        if (saveAnalyzedObjectsBeforeOptimizations)
+        {
+            sceneInteractor.DestroyAllObjectsClones();
+        }
+    }
+
+    private GameObject CreateSceneBoundsObject()
     {
         return sceneInteractor.CreateSceneBoundsObject();
     }
 
-    public void DivideIntoChunks(GameObject targetBoundsCube)
+    private void PerformOptimizations(bool isSaveObjectsNeeded)
     {
-        if (targetBoundsCube != null)
+        if (combineObjectsByPolygonsNeeded)
         {
-            Vector3 sizeOfOriginalBoundsCube = targetBoundsCube.transform.lossyScale;
-            Vector3 chunkSize = new Vector3(
-                sizeOfOriginalBoundsCube.x / SectionCount.x,
-                sizeOfOriginalBoundsCube.y / SectionCount.y,
-                sizeOfOriginalBoundsCube.z / SectionCount.z
-                );
-            Vector3 fillStartPosition = targetBoundsCube.transform.TransformPoint(new Vector3(-0.5f, 0.5f, -0.5f))
-                                + targetBoundsCube.transform.TransformDirection(new Vector3(chunkSize.x, -chunkSize.y, chunkSize.z) / 2.0f);
+            sceneInteractor.OptimizeChunksByObjectsPolygonsCount(chunkObjectsPolygonsThreshold, isSaveObjectsNeeded);
+        }
 
-            Transform parentTransform = new GameObject(targetBoundsCube.name).transform;
+        if (combineObjectsByMaterialsNeeded)
+        {
+            sceneInteractor.OptimizeChunksByObjectsMaterials(chunkObjectsWithSameMaterialThreshold, isSaveObjectsNeeded);
+        }
 
-            GameObject chunk;
-            int chunkNumber = 0;
+        if (combineObjectsByTagsNeeded)
+        {
+            sceneInteractor.OptimizeChunksByObjectsTags(tagsToCombine, isSaveObjectsNeeded);
+        }
 
-            for (int i = 0; i < SectionCount.x; i++)
-            {
-                for (int j = 0; j < SectionCount.y; j++)
-                {
-                    for (int k = 0; k < SectionCount.z; k++)
-                    {
-                        chunk = new GameObject();
-                        chunkNumber++;
-
-                        chunk.name = "Chunk_" + chunkNumber;
-
-                        chunk.transform.localScale = chunkSize;
-                        chunk.transform.position = fillStartPosition +
-                                                       targetBoundsCube.transform.TransformDirection(new Vector3((chunkSize.x) * i, -(chunkSize.y) * j, (chunkSize.z) * k));
-                        chunk.transform.rotation = targetBoundsCube.transform.rotation;
-
-                        chunk.transform.SetParent(parentTransform);
-                        chunk.AddComponent<BoxCollider>();
-                    }
-                }
-            }
-
-            Destroy(targetBoundsCube);
+        if (combineObjectsByDistanceNeeded)
+        {
+            sceneInteractor.OptimizeChunksByDistanceBetweenObjects(distanceLimit, collectionsOfObjectsToCombineByDistance, isSaveObjectsNeeded);
         }
     }
 }

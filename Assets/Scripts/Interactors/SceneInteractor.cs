@@ -27,9 +27,9 @@ public class SceneInteractor : ScriptableObject
         return FindObjectsOfType<GameObject>();
     }
 
-    public GameObject[] GetAllActiveGameObjectsOnScene()
+    public GameObject[] GetAllActiveStaticGameObjectsOnScene()
     {
-        return FindObjectsOfType<GameObject>().Where(obj => obj.activeSelf == true).ToArray();
+        return FindObjectsOfType<GameObject>().Where(obj => obj.activeSelf == true && obj.isStatic).ToArray();
     }
 
     public List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)
@@ -129,7 +129,7 @@ public class SceneInteractor : ScriptableObject
     public void MapObjectsToChunks()
     {
         chunksToObjects.Clear();
-        List<GameObject> allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllGameObjectsOnScene().ToList());
+        List<GameObject> allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllActiveStaticGameObjectsOnScene().ToList());
 
         foreach (GameObject chunk in chunks)
         {
@@ -149,7 +149,7 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByObjectsPolygonsCount(int objectsPolygonsThreshold, bool isSaveObjectsNeeded = false)
+    public void OptimizeChunksByObjectsPolygonsCount(int objectsPolygonsThreshold, bool isSaveObjectsNeeded = true)
     {
         if (chunksToObjects.Count == 0)
         {
@@ -180,7 +180,7 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByObjectsMaterials(int objectsWithSameMaterialThreshold, bool isSaveObjectsNeeded = false)
+    public void OptimizeChunksByObjectsMaterials(int objectsWithSameMaterialThreshold, bool isSaveObjectsNeeded = true)
     {
         if (chunksToObjects.Count == 0)
         {
@@ -211,7 +211,7 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByObjectsTags(string[] tagsToCombine, bool isSaveObjectsNeeded = false)
+    public void OptimizeChunksByObjectsTags(string[] tagsToCombine, bool isSaveObjectsNeeded = true)
     {
         if (chunksToObjects.Count == 0)
         {
@@ -242,7 +242,7 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByDistanceBetweenObjects(float distanceLimit, GameObject[] collectionsOfObjectsToCombineByDistance, bool isSaveObjectsNeeded = false)
+    public void OptimizeChunksByDistanceBetweenObjects(float distanceLimit, GameObject[] collectionsOfObjectsToCombineByDistance, bool isSaveObjectsNeeded = true)
     {
         if (collectionsOfObjectsToCombineByDistance.Length != 0)
         {
@@ -298,11 +298,11 @@ public class SceneInteractor : ScriptableObject
     }
     public GameObject DeactivateObjectAndGetClone(GameObject obj)
     {
+        Transform objParent = obj.transform.parent;
+        obj.transform.SetParent(null);
         GameObject objClone = Instantiate(obj);
-        objClone.transform.position = obj.transform.position;
-        objClone.transform.rotation = obj.transform.rotation;
-
         objectsClones.Add(objClone);
+        obj.transform.SetParent(objParent);
         obj.SetActive(false);
 
         return objClone;

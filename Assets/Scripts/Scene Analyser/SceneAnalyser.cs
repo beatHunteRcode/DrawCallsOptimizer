@@ -25,6 +25,7 @@ public class SceneAnalyser : MonoBehaviour
 
     public Material chunkMaterial;
 
+    public bool analyzeOnlyStaticObjects = true;
     public bool destroySceneBoundsObjectAfterOptimizations = true;
     public bool saveAnalyzedObjectsBeforeOptimizations = true;
 
@@ -38,8 +39,8 @@ public class SceneAnalyser : MonoBehaviour
     {
         GameObject boundsCube = CreateSceneBoundsObject();
         sceneInteractor.DivideIntoChunks(boundsCube, sectionCount, chunkMaterial);
-        sceneInteractor.MapObjectsToChunks();
-        PerformOptimizations(saveAnalyzedObjectsBeforeOptimizations);
+        sceneInteractor.MapObjectsToChunks(analyzeOnlyStaticObjects);
+        PerformOptimizations();
         if (destroySceneBoundsObjectAfterOptimizations)
         {
             DestroyImmediate(boundsCube);
@@ -55,26 +56,26 @@ public class SceneAnalyser : MonoBehaviour
         return sceneInteractor.CreateSceneBoundsObject();
     }
 
-    private void PerformOptimizations(bool isSaveObjectsNeeded)
+    private void PerformOptimizations()
     {
         if (combineObjectsByPolygonsNeeded)
         {
-            sceneInteractor.OptimizeChunksByObjectsPolygonsCount(chunkObjectsPolygonsThreshold, isSaveObjectsNeeded);
+            sceneInteractor.OptimizeChunksByObjectsPolygonsCount(chunkObjectsPolygonsThreshold, analyzeOnlyStaticObjects, saveAnalyzedObjectsBeforeOptimizations);
         }
 
         if (combineObjectsByMaterialsNeeded)
         {
-            sceneInteractor.OptimizeChunksByObjectsMaterials(chunkObjectsWithSameMaterialThreshold, isSaveObjectsNeeded);
+            sceneInteractor.OptimizeChunksByObjectsMaterials(chunkObjectsWithSameMaterialThreshold, analyzeOnlyStaticObjects, saveAnalyzedObjectsBeforeOptimizations);
         }
 
         if (combineObjectsByTagsNeeded)
         {
-            sceneInteractor.OptimizeChunksByObjectsTags(tagsToCombine, isSaveObjectsNeeded);
+            sceneInteractor.OptimizeChunksByObjectsTags(tagsToCombine, analyzeOnlyStaticObjects, saveAnalyzedObjectsBeforeOptimizations);
         }
 
         if (combineObjectsByDistanceNeeded)
         {
-            sceneInteractor.OptimizeChunksByDistanceBetweenObjects(distanceLimit, collectionsOfObjectsToCombineByDistance, isSaveObjectsNeeded);
+            sceneInteractor.OptimizeChunksByDistanceBetweenObjects(distanceLimit, analyzeOnlyStaticObjects, collectionsOfObjectsToCombineByDistance, saveAnalyzedObjectsBeforeOptimizations);
         }
     }
 }

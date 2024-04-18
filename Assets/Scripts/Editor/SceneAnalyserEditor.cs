@@ -44,6 +44,13 @@ public class SceneAnalyserEditor : Editor
 #pragma warning disable 0618
         sceneAnalyser.chunkMaterial = EditorGUILayout.ObjectField("Chunk Material", sceneAnalyser.chunkMaterial, typeof(Material)) as Material;
 
+        DrawSpacer(LARGE_SPACER_WIDTH);
+
+        using (new FixedWidthLabel("Analyze only Static objects"))
+        {
+            sceneAnalyser.analyzeOnlyStaticObjects = EditorGUILayout.Toggle(sceneAnalyser.analyzeOnlyStaticObjects);
+        }
+
         using (new FixedWidthLabel("Destroy Scene Bounds object after optimizations\t"))
         {
             sceneAnalyser.destroySceneBoundsObjectAfterOptimizations = EditorGUILayout.Toggle(sceneAnalyser.destroySceneBoundsObjectAfterOptimizations);

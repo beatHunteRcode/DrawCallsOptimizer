@@ -27,6 +27,11 @@ public class SceneInteractor : ScriptableObject
         return FindObjectsOfType<GameObject>();
     }
 
+    public GameObject[] GetAllActiveGameObjectsOnScene()
+    {
+        return FindObjectsOfType<GameObject>().Where(obj => obj.activeSelf == true).ToArray();
+    }
+
     public GameObject[] GetAllActiveStaticGameObjectsOnScene()
     {
         return FindObjectsOfType<GameObject>().Where(obj => obj.activeSelf == true && obj.isStatic).ToArray();
@@ -126,10 +131,18 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void MapObjectsToChunks()
+    public void MapObjectsToChunks(bool analyzeOnlyStaticObjects)
     {
         chunksToObjects.Clear();
-        List<GameObject> allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllActiveStaticGameObjectsOnScene().ToList());
+        List<GameObject> allSceneGameObjectsNeedToAnalyse;
+        if (analyzeOnlyStaticObjects)
+        {
+            allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllActiveStaticGameObjectsOnScene().ToList());
+        }
+        else
+        {
+            allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllActiveGameObjectsOnScene().ToList());
+        }
 
         foreach (GameObject chunk in chunks)
         {
@@ -149,11 +162,11 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByObjectsPolygonsCount(int objectsPolygonsThreshold, bool isSaveObjectsNeeded = true)
+    public void OptimizeChunksByObjectsPolygonsCount(int objectsPolygonsThreshold, bool analyzeOnlyStaticObjects, bool isSaveObjectsNeeded = true)
     {
         if (chunksToObjects.Count == 0)
         {
-            GameObject objectWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByPolygons(objectsPolygonsThreshold: objectsPolygonsThreshold, isSaveObjectsNeeded: isSaveObjectsNeeded);
+            GameObject objectWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByPolygons(analyzeOnlyStaticObjects, objectsPolygonsThreshold: objectsPolygonsThreshold, isSaveObjectsNeeded: isSaveObjectsNeeded);
             if (objectWithAnotherObjectsMeshes != null)
             {
                 objectWithAnotherObjectsMeshes.name = GetObjectName(
@@ -168,7 +181,7 @@ public class SceneInteractor : ScriptableObject
             GameObject chunk = chunkWithObjects.Key;
             List<GameObject> objects = chunkWithObjects.Value;
 
-            GameObject objectWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByPolygons(objects, objectsPolygonsThreshold, isSaveObjectsNeeded);
+            GameObject objectWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByPolygons(analyzeOnlyStaticObjects, objects, objectsPolygonsThreshold, isSaveObjectsNeeded);
             if (objectWithAnotherObjectsMeshes != null)
             {
                 objectWithAnotherObjectsMeshes.name = GetObjectName(
@@ -180,11 +193,11 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByObjectsMaterials(int objectsWithSameMaterialThreshold, bool isSaveObjectsNeeded = true)
+    public void OptimizeChunksByObjectsMaterials(int objectsWithSameMaterialThreshold, bool analyzeOnlyStaticObjects, bool isSaveObjectsNeeded = true)
     {
         if (chunksToObjects.Count == 0)
         {
-            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByMaterials(objectsWithSameMaterialThreshold, isSaveObjectsNeeded: isSaveObjectsNeeded);
+            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByMaterials(analyzeOnlyStaticObjects, objectsWithSameMaterialThreshold, isSaveObjectsNeeded: isSaveObjectsNeeded);
             foreach (GameObject obj in objectsWithAnotherObjectsMeshes)
             {
                 obj.name = GetObjectName(
@@ -199,7 +212,7 @@ public class SceneInteractor : ScriptableObject
             GameObject chunk = chunkWithObjects.Key;
             List<GameObject> objects = chunkWithObjects.Value;
 
-            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByMaterials(objectsWithSameMaterialThreshold, objects, isSaveObjectsNeeded);
+            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByMaterials(analyzeOnlyStaticObjects, objectsWithSameMaterialThreshold, objects, isSaveObjectsNeeded);
             foreach (GameObject obj in objectsWithAnotherObjectsMeshes)
             {
                 obj.name = GetObjectName(
@@ -211,11 +224,11 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByObjectsTags(string[] tagsToCombine, bool isSaveObjectsNeeded = true)
+    public void OptimizeChunksByObjectsTags(string[] tagsToCombine, bool analyzeOnlyStaticObjects, bool isSaveObjectsNeeded = true)
     {
         if (chunksToObjects.Count == 0)
         {
-            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByTags(tagsToCombine, isSaveObjectsNeeded: isSaveObjectsNeeded);
+            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByTags(analyzeOnlyStaticObjects, tagsToCombine, isSaveObjectsNeeded: isSaveObjectsNeeded);
             foreach (GameObject obj in objectsWithAnotherObjectsMeshes)
             {
                 obj.name = GetObjectName(
@@ -230,7 +243,7 @@ public class SceneInteractor : ScriptableObject
             GameObject chunk = chunkWithObjects.Key;
             List<GameObject> objects = chunkWithObjects.Value;
 
-            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByTags(tagsToCombine, objects, isSaveObjectsNeeded);
+            List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByTags(analyzeOnlyStaticObjects, tagsToCombine, objects, isSaveObjectsNeeded);
             foreach (GameObject obj in objectsWithAnotherObjectsMeshes)
             {
                 obj.name = GetObjectName(
@@ -242,7 +255,7 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
-    public void OptimizeChunksByDistanceBetweenObjects(float distanceLimit, GameObject[] collectionsOfObjectsToCombineByDistance, bool isSaveObjectsNeeded = true)
+    public void OptimizeChunksByDistanceBetweenObjects(float distanceLimit, bool analyzeOnlyStaticObjects, GameObject[] collectionsOfObjectsToCombineByDistance, bool isSaveObjectsNeeded = true)
     {
         if (collectionsOfObjectsToCombineByDistance.Length != 0)
         {
@@ -264,7 +277,7 @@ public class SceneInteractor : ScriptableObject
         {
             if (chunksToObjects.Count == 0)
             {
-                List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByDistance(distanceLimit, isSaveObjectsNeeded: isSaveObjectsNeeded);
+                List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByDistance(distanceLimit, analyzeOnlyStaticObjects, isSaveObjectsNeeded: isSaveObjectsNeeded);
                 foreach (GameObject obj in objectsWithAnotherObjectsMeshes)
                 {
                     obj.name = GetObjectName(
@@ -282,7 +295,7 @@ public class SceneInteractor : ScriptableObject
                 GameObject chunk = chunkWithObjects.Key;
                 List<GameObject> objects = chunkWithObjects.Value;
 
-                List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByDistance(distanceLimit, objects, isSaveObjectsNeeded: isSaveObjectsNeeded);
+                List<GameObject> objectsWithAnotherObjectsMeshes = objectCombiner.CombineObjectsByDistance(distanceLimit, analyzeOnlyStaticObjects, objects, isSaveObjectsNeeded: isSaveObjectsNeeded);
                 foreach (GameObject obj in objectsWithAnotherObjectsMeshes)
                 {
                     obj.name = GetObjectName(

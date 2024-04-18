@@ -17,13 +17,21 @@ public class ObjectCombiner : ScriptableObject
         objectsInteractor = CreateInstance<ObjectsInteractor>();
     }
 
-    public GameObject CombineObjectsByPolygons(List<GameObject> objects = null, int objectsPolygonsThreshold = 0, bool isSaveObjectsNeeded = true)
+    public GameObject CombineObjectsByPolygons(bool analyzeOnlyStaticObjects, List<GameObject> objects = null, int objectsPolygonsThreshold = 0, bool isSaveObjectsNeeded = true)
     {
         GameObject parentObj = null;
 
         if (objects == null)
         {
-            List<GameObject> allSceneObjects = sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList();
+            List<GameObject> allSceneObjects;
+            if (analyzeOnlyStaticObjects)
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+            }
+            else
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+            }
             objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         }
         int allObjectsPolygonsCount = CountAllObjectsPolygons(objects);
@@ -53,18 +61,29 @@ public class ObjectCombiner : ScriptableObject
             }
             meshCombiner.CombineMeshes(false);
             DestroyImmediate(meshCombiner);
-            parentObj.isStatic = true;
+            if (analyzeOnlyStaticObjects)
+            {
+                parentObj.isStatic = true;
+            }
         }
 
         return parentObj;
     }
 
-    public List<GameObject> CombineObjectsByMaterials(int objectsWithSameMaterialThreshold, List<GameObject> objects = null, bool isSaveObjectsNeeded = true)
+    public List<GameObject> CombineObjectsByMaterials(bool analyzeOnlyStaticObjects, int objectsWithSameMaterialThreshold, List<GameObject> objects = null, bool isSaveObjectsNeeded = true)
     {
         List<GameObject> parentObjList = new();
 
         if (objects == null) {
-            List<GameObject> allSceneObjects = sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList();
+            List<GameObject> allSceneObjects;
+            if (analyzeOnlyStaticObjects)
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+            }
+            else
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+            }
             objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         }
 
@@ -92,7 +111,10 @@ public class ObjectCombiner : ScriptableObject
                 meshCombiner.DestroyCombinedChildren = true;
                 meshCombiner.CombineMeshes(false);
                 DestroyImmediate(meshCombiner);
-                parentObj.isStatic = true;
+                if (analyzeOnlyStaticObjects)
+                {
+                    parentObj.isStatic = true;
+                }
                 parentObjList.Add(parentObj);
             }
         }
@@ -100,13 +122,21 @@ public class ObjectCombiner : ScriptableObject
         return parentObjList;
     }
 
-    public List<GameObject> CombineObjectsByTags(string[] tagsToCombine, List<GameObject> objects = null, bool isSaveObjectsNeeded = true)
+    public List<GameObject> CombineObjectsByTags(bool analyzeOnlyStaticObjects, string[] tagsToCombine, List<GameObject> objects = null, bool isSaveObjectsNeeded = true)
     {
         List<GameObject> parentObjList = new();
 
         if (objects == null)
         {
-            List<GameObject> allSceneObjects = sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList();
+            List<GameObject> allSceneObjects;
+            if (analyzeOnlyStaticObjects)
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+            }
+            else
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+            }
             objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         }
 
@@ -141,7 +171,10 @@ public class ObjectCombiner : ScriptableObject
                 meshCombiner.CombineMeshes(false);
                 parentObj.tag = tag;
                 DestroyImmediate(meshCombiner);
-                parentObj.isStatic = true;
+                if (analyzeOnlyStaticObjects)
+                {
+                    parentObj.isStatic = true;
+                }
                 parentObjList.Add(parentObj);
             }
         }
@@ -149,10 +182,24 @@ public class ObjectCombiner : ScriptableObject
         return parentObjList;
     }
 
-    public List<GameObject> CombineObjectsByDistance(float distanceLimit, List<GameObject> objects = null, bool isSaveObjectsNeeded = true)
+    public List<GameObject> CombineObjectsByDistance(float distanceLimit, bool analyzeOnlyStaticObjects, List<GameObject> objects = null, bool isSaveObjectsNeeded = true)
     {
         List<GameObject> parentObjList = new();
         List<Transform> objectsTransforms = new();
+
+        if (objects == null)
+        {
+            List<GameObject> allSceneObjects;
+            if (analyzeOnlyStaticObjects)
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+            }
+            else
+            {
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+            }
+            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+        }
 
         foreach (GameObject obj in objects)
         {
@@ -188,7 +235,8 @@ public class ObjectCombiner : ScriptableObject
             {
                 GameObject parentObj = new GameObject();
                 MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
-                nodeWithMaxValidNeighbors.GameObject.transform.SetParent(parentObj.transform);
+                GameObject cloneNodeObjectWithMaxValidNeighbors = sceneInteractor.DeactivateObjectAndGetClone(nodeWithMaxValidNeighbors.GameObject.gameObject);
+                cloneNodeObjectWithMaxValidNeighbors.transform.SetParent(parentObj.transform);
 
                 foreach (KeyValuePair<GameObjectsGraph.Node, GameObjectsGraph.Edge> nodeWithDistance in nodeWithMaxValidNeighbors.NeighboursWithValidDistances)
                 {
@@ -214,8 +262,12 @@ public class ObjectCombiner : ScriptableObject
                 }
                 meshCombiner.CombineMeshes(false);
                 DestroyImmediate(meshCombiner);
-                parentObj.isStatic = true;
+                if (analyzeOnlyStaticObjects)
+                {
+                    parentObj.isStatic = true;
+                }
                 parentObjList.Add(parentObj);
+                objectsTransforms.Remove(nodeWithMaxValidNeighbors.GameObject.transform);
             }
             objectsTransforms = objectsTransforms.Where(objTransform => objTransform != null).ToList();
         }

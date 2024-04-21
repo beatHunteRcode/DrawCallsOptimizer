@@ -65,7 +65,26 @@ public class SceneAnalyserEditor : Editor
 
         if (GUILayout.Button("Optimize Objects on Scene"))
         {
+            ObjectsInfoHolder.objectsCreatedByScript.Clear();
             sceneAnalyser.OptimizeObjectsOnScene();
+        }
+
+        if (ObjectsInfoHolder.originalObjects.Count > 0)
+        {
+            if (GUILayout.Button("Enable all original Objects"))
+            {
+                sceneAnalyser.EnableAllOriginalOptimizedObjects();
+                ObjectsInfoHolder.originalObjects.Clear();
+            }
+        }
+
+        if (ObjectsInfoHolder.objectsCreatedByScript.Count > 0)
+        {
+            if (GUILayout.Button("Destroy all Objects created by SceneAnalyzer script"))
+            {
+                sceneAnalyser.DestroyAllObjectsCreatedByScript();
+                ObjectsInfoHolder.objectsCreatedByScript.Clear();
+            }
         }
 
         serializedObject.ApplyModifiedProperties();

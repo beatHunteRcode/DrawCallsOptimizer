@@ -51,6 +51,16 @@ public class SceneAnalyser : MonoBehaviour
         }
     }
 
+    public void EnableAllOriginalOptimizedObjects()
+    {
+        sceneInteractor.EnableAllOriginalOptimizedObjects();
+    }
+
+    public void DestroyAllObjectsCreatedByScript()
+    {
+        sceneInteractor.DestroyAllObjectsCreatedByScript();
+    }
+
     private GameObject CreateSceneBoundsObject()
     {
         return sceneInteractor.CreateSceneBoundsObject();

@@ -2,9 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using System.Linq;
-using System.Net.NetworkInformation;
-using System.Xml;
-using System.Collections.ObjectModel;
 
 public class ObjectCombiner : ScriptableObject
 {

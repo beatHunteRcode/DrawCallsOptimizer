@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using System.Linq;
+using UnityEditorInternal.Profiling.Memory.Experimental.FileFormat;
 
 public class ObjectCombiner : ScriptableObject
 {
@@ -84,13 +85,13 @@ public class ObjectCombiner : ScriptableObject
             objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
         }
 
-        Dictionary<Material, List<GameObject>> materialsToObjects = MapMaterialsToObjects(objects);
-        foreach (KeyValuePair<Material, List<GameObject>> materialAndObjects in materialsToObjects)
+        Dictionary<Material[], List<GameObject>> materialsToObjects = MapMaterialsToObjects(objects);
+        foreach (KeyValuePair<Material[], List<GameObject>> materialsAndObjects in materialsToObjects)
         {
-            if (materialAndObjects.Value.Count >= objectsWithSameMaterialThreshold)
+            if (materialsAndObjects.Value.Count >= objectsWithSameMaterialThreshold)
             {
                 GameObject parentObj = new();
-                List<GameObject> gameObjects = materialAndObjects.Value;
+                List<GameObject> gameObjects = materialsAndObjects.Value;
                 foreach (GameObject obj in gameObjects)
                 {
                     GameObject cloneObject;
@@ -106,6 +107,10 @@ public class ObjectCombiner : ScriptableObject
                 }
                 MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
                 meshCombiner.DestroyCombinedChildren = true;
+                if (materialsAndObjects.Value.Count > 1)
+                {
+                    meshCombiner.CreateMultiMaterialMesh = true;
+                }
                 meshCombiner.CombineMeshes(false);
                 DestroyImmediate(meshCombiner);
                 if (analyzeOnlyStaticObjects)
@@ -333,28 +338,34 @@ public class ObjectCombiner : ScriptableObject
         return parentObjList;
     }
 
-    public Dictionary<Material, List<GameObject>> MapMaterialsToObjects(List<GameObject> objectsWithMeshFilter)
+    public Dictionary<Material[], List<GameObject>> MapMaterialsToObjects(List<GameObject> objectsWithMeshFilter)
     {
-        Dictionary<Material, List<GameObject>> materialsToObjects = new();
+        Dictionary<Material[], List<GameObject>> materialsToObjects = new();
         foreach (GameObject obj in objectsWithMeshFilter)
         {
-            Material currentObjectMaterial = obj.GetComponent<Renderer>().sharedMaterial;
+            Material[] currentObjectMaterials = obj.GetComponent<Renderer>().sharedMaterials;
 
-            if (currentObjectMaterial == null)
+            if (currentObjectMaterials == null)
             {
                 continue;
             }
 
-            if (materialsToObjects.ContainsKey(currentObjectMaterial))
+            bool isAnyMaterialMatches = false;
+            foreach(KeyValuePair<Material[], List<GameObject>> entry in materialsToObjects)
             {
-                List<GameObject> objectsWithCurrentMaterial = materialsToObjects[currentObjectMaterial];
-                objectsWithCurrentMaterial.Add(obj);
+                if (ListExtensions.ContainsAllItems(entry.Key, currentObjectMaterials))
+                {
+                    isAnyMaterialMatches = true;
+                    List<GameObject> objectsWithCurrentMaterials = entry.Value;
+                    objectsWithCurrentMaterials.Add(obj);
+                }
             }
-            else
+
+            if (!isAnyMaterialMatches)
             {
                 List<GameObject> objectsWithCurrentMaterial = new();
                 objectsWithCurrentMaterial.Add(obj);
-                materialsToObjects.Add(currentObjectMaterial, objectsWithCurrentMaterial);
+                materialsToObjects.Add(currentObjectMaterials, objectsWithCurrentMaterial);
             }
         }
         return materialsToObjects;

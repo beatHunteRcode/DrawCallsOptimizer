@@ -392,7 +392,12 @@ public class SceneInteractor : ScriptableObject
                 nameBuilder.Append("CombinedByPolygons");
                 break;
             case CombineMethod.BY_MATERIALS:
-                nameBuilder.Append("CombinedByMaterials").Append("_").Append(obj.GetComponent<MeshRenderer>().sharedMaterial.name.Replace(" (Instance)", ""));
+                nameBuilder.Append("CombinedByMaterials");
+                foreach (Material mat in obj.GetComponent<MeshRenderer>().sharedMaterials)
+                {
+                    nameBuilder.Append("_");
+                    nameBuilder.Append(mat.name.Replace(" (Instance)", ""));
+                }
                 break;
             case CombineMethod.BY_TAGS:
                 nameBuilder.Append("CombinedByTags").Append("_").Append(obj.tag);

@@ -58,3 +58,4 @@ MonoBehaviour:
   analyzeOnlyStaticObjects: 1
   destroySceneBoundsObjectAfterOptimizations: 1
   saveAnalyzedObjectsBeforeOptimizations: 1
+  terrainsToOptimize: []

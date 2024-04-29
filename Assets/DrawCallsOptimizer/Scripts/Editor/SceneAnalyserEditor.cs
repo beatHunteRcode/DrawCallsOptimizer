@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -87,6 +88,10 @@ public class SceneAnalyserEditor : Editor
             }
         }
 
+        DrawSpacer(LARGE_SPACER_WIDTH);
+
+        DrawTerrainsOptimizationGroup(sceneAnalyser);
+
         serializedObject.ApplyModifiedProperties();
     }
 
@@ -171,6 +176,28 @@ public class SceneAnalyserEditor : Editor
 
                 SerializedProperty collectionOfObjectsToCombineByDistance = serializedObject.FindProperty("collectionsOfObjectsToCombineByDistance");
                 EditorGUILayout.PropertyField(collectionOfObjectsToCombineByDistance, new GUIContent("Collections of Objects to Combine"));
+            }
+        }
+    }
+
+    private void DrawTerrainsOptimizationGroup(SceneAnalyser sceneAnalyser)
+    {
+        SerializedProperty collectionOfTerrainsToOptimize = serializedObject.FindProperty("terrainsToOptimize");
+        EditorGUILayout.PropertyField(collectionOfTerrainsToOptimize, new GUIContent("Terrains to Optimize"));
+
+        if (!Array.Exists(sceneAnalyser.terrainsToOptimize, terrain => terrain == null) && sceneAnalyser.terrainsToOptimize.Length > 0)
+        {
+            if (GUILayout.Button("Create Tree Objects From Terrains"))
+            {
+                sceneAnalyser.CreateTreeObjectsFromTerrain(sceneAnalyser.terrainsToOptimize);
+            }
+            if (GUILayout.Button("Delete All Trees From Terrains"))
+            {
+                sceneAnalyser.DeleteAllTreesFromTerrain(sceneAnalyser.terrainsToOptimize);
+            }
+            if (GUILayout.Button("Restore All Terrains Trees"))
+            {
+                sceneAnalyser.RestoreAllTerrainTrees(sceneAnalyser.terrainsToOptimize);
             }
         }
     }

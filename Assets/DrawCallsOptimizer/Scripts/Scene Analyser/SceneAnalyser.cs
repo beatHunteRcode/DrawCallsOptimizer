@@ -1,10 +1,12 @@
 using System;
+using Unity.Jobs;
 using UnityEngine;
 
 [ExecuteInEditMode]
 public class SceneAnalyser : MonoBehaviour
 {
     SceneInteractor sceneInteractor;
+    TerrainInteractor terrainInteractor;
 
     public bool combineObjectsByPolygonsNeeded = false;
     public bool combineObjectsByMaterialsNeeded = false;
@@ -29,10 +31,14 @@ public class SceneAnalyser : MonoBehaviour
     public bool destroySceneBoundsObjectAfterOptimizations = true;
     public bool saveAnalyzedObjectsBeforeOptimizations = true;
 
+    public Terrain[] terrainsToOptimize = new Terrain[] { };
+
     void Start()
     {
         sceneInteractor = ScriptableObject.CreateInstance<SceneInteractor>();
         sceneInteractor.Init();
+
+        terrainInteractor = ScriptableObject.CreateInstance<TerrainInteractor>();
     }
 
     public void OptimizeObjectsOnScene()
@@ -61,13 +67,28 @@ public class SceneAnalyser : MonoBehaviour
         sceneInteractor.DestroyAllObjectsCreatedByScript();
     }
 
+    public void CreateTreeObjectsFromTerrain(Terrain[] terrains)
+    {
+        terrainInteractor.CreateTreeObjectsFromTerrain(terrains);
+    }
+
+    public void DeleteAllTreesFromTerrain(Terrain[] terrains)
+    {
+        terrainInteractor.DeleteAllTreesFromTerrain(terrains);
+    }
+
+    public void RestoreAllTerrainTrees(Terrain[] terrains)
+    {
+        terrainInteractor.RestoreAllTerrainTrees(terrains);
+    }
+
     private GameObject CreateSceneBoundsObject()
     {
         return sceneInteractor.CreateSceneBoundsObject();
     }
 
     private void PerformOptimizations()
-    {
+     {
         if (combineObjectsByPolygonsNeeded)
         {
             sceneInteractor.OptimizeChunksByObjectsPolygonsCount(chunkObjectsPolygonsThreshold, analyzeOnlyStaticObjects, saveAnalyzedObjectsBeforeOptimizations);

@@ -3,6 +3,8 @@ using UnityEngine;
 using System;
 using System.Linq;
 using UnityEditorInternal.Profiling.Memory.Experimental.FileFormat;
+using UnityMeshSimplifier;
+using Unity.VisualScripting;
 
 public class ObjectCombiner : ScriptableObject
 {
@@ -24,13 +26,13 @@ public class ObjectCombiner : ScriptableObject
             List<GameObject> allSceneObjects;
             if (analyzeOnlyStaticObjects)
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
             }
             else
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
             }
-            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+            objects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(allSceneObjects);
         }
         int allObjectsPolygonsCount = CountAllObjectsPolygons(objects);
 
@@ -43,7 +45,7 @@ public class ObjectCombiner : ScriptableObject
                 GameObject cloneObject;
                 if (isSaveObjectsNeeded)
                 {
-                    cloneObject = sceneInteractor.DeactivateObjectAndGetClone(obj);
+                    cloneObject = sceneInteractor.GetClone(obj);
                 }
                 else
                 {
@@ -76,13 +78,13 @@ public class ObjectCombiner : ScriptableObject
             List<GameObject> allSceneObjects;
             if (analyzeOnlyStaticObjects)
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
             }
             else
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
             }
-            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+            objects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(allSceneObjects);
         }
 
         Dictionary<Material[], List<GameObject>> materialsToObjects = MapMaterialsToObjects(objects);
@@ -97,17 +99,25 @@ public class ObjectCombiner : ScriptableObject
                     GameObject cloneObject;
                     if (isSaveObjectsNeeded)
                     {
-                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(obj);
+                        cloneObject = sceneInteractor.GetClone(obj);
                     }
                     else
                     {
                         cloneObject = obj;
                     }
+                    Transform[] cloneChildren = objectsInteractor.GetChildrenRecursively(cloneObject);
+                    foreach (Transform child in cloneChildren)
+                    {
+                        if (SceneInteractor.lodObjectsNames.Contains(child.gameObject.name)) 
+                        {
+                            DestroyImmediate(child.gameObject);
+                        }
+                    }
                     cloneObject.transform.SetParent(parentObj.transform);
                 }
                 MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
                 meshCombiner.DestroyCombinedChildren = true;
-                if (materialsAndObjects.Value.Count > 1)
+                if (materialsAndObjects.Key.Length > 1)
                 {
                     meshCombiner.CreateMultiMaterialMesh = true;
                 }
@@ -117,6 +127,22 @@ public class ObjectCombiner : ScriptableObject
                 {
                     parentObj.isStatic = true;
                 }
+
+                LODGeneratorHelper lodGeneratorHelper = parentObj.AddComponent<LODGeneratorHelper>();
+                SimplificationOptions simplificationOptions = lodGeneratorHelper.SimplificationOptions;
+                simplificationOptions.PreserveBorderEdges = true;
+                simplificationOptions.PreserveUVSeamEdges = true;
+                simplificationOptions.PreserveUVFoldoverEdges = true;
+                simplificationOptions.PreserveSurfaceCurvature = true;
+                simplificationOptions.EnableSmartLink = true;
+
+                lodGeneratorHelper.Levels[0].Quality = 1f;
+                lodGeneratorHelper.Levels[1].Quality = 0.5f;
+                lodGeneratorHelper.Levels[2].Quality = 0.1f;
+
+                LODGenerator.GenerateLODs(lodGeneratorHelper);
+                DestroyImmediate(lodGeneratorHelper);
+
                 parentObjList.Add(parentObj);
             }
         }
@@ -133,13 +159,13 @@ public class ObjectCombiner : ScriptableObject
             List<GameObject> allSceneObjects;
             if (analyzeOnlyStaticObjects)
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
             }
             else
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
             }
-            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+            objects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(allSceneObjects);
         }
 
         Dictionary<string, List<GameObject>> tagsToObjects = MapTagsToObjectsOnScene(tagsToCombine, objects);
@@ -156,7 +182,7 @@ public class ObjectCombiner : ScriptableObject
                     GameObject cloneObject;
                     if (isSaveObjectsNeeded)
                     {
-                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(obj);
+                        cloneObject = sceneInteractor.GetClone(obj);
                     }
                     else
                     {
@@ -194,13 +220,13 @@ public class ObjectCombiner : ScriptableObject
             List<GameObject> allSceneObjects;
             if (analyzeOnlyStaticObjects)
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveStaticGameObjectsOnScene().ToList());
             }
             else
             {
-                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilter(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
+                allSceneObjects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(sceneInteractor.GetAllActiveGameObjectsOnScene().ToList());
             }
-            objects = sceneInteractor.GetAllObjectsWithMeshFilter(allSceneObjects);
+            objects = sceneInteractor.GetAllObjectsWithMeshFilterOrLODGroup(allSceneObjects);
         }
 
         foreach (GameObject obj in objects)
@@ -237,7 +263,7 @@ public class ObjectCombiner : ScriptableObject
             {
                 GameObject parentObj = new GameObject();
                 MeshCombiner meshCombiner = parentObj.AddComponent<MeshCombiner>();
-                GameObject cloneNodeObjectWithMaxValidNeighbors = sceneInteractor.DeactivateObjectAndGetClone(nodeWithMaxValidNeighbors.GameObject.gameObject);
+                GameObject cloneNodeObjectWithMaxValidNeighbors = sceneInteractor.GetClone(nodeWithMaxValidNeighbors.GameObject.gameObject);
                 cloneNodeObjectWithMaxValidNeighbors.transform.SetParent(parentObj.transform);
 
                 foreach (KeyValuePair<GameObjectsGraph.Node, GameObjectsGraph.Edge> nodeWithDistance in nodeWithMaxValidNeighbors.NeighboursWithValidDistances)
@@ -246,7 +272,7 @@ public class ObjectCombiner : ScriptableObject
                     GameObject cloneObject;
                     if (isSaveObjectsNeeded)
                     {
-                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(node.GameObject.gameObject);
+                        cloneObject = sceneInteractor.GetClone(node.GameObject.gameObject);
                     }
                     else
                     {
@@ -312,7 +338,7 @@ public class ObjectCombiner : ScriptableObject
                     GameObject cloneObject;
                     if (isSaveObjectsNeeded)
                     {
-                        cloneObject = sceneInteractor.DeactivateObjectAndGetClone(node.GameObject.gameObject);
+                        cloneObject = sceneInteractor.GetClone(node.GameObject.gameObject);
                     }
                     else
                     {

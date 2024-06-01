@@ -7,4 +7,5 @@ public static class ObjectsInfoHolder
 {
     public static List<GameObject> originalObjects = new();
     public static List<GameObject> objectsCreatedByScript = new();
+    public static string boundsObjectName;
 }

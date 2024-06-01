@@ -1,15 +1,15 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
 using System.Text;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using UnityEngine;
 
 public class SceneInteractor : ScriptableObject
 {
+    public static List<string> lodObjectsNames = new();
+
     private ObjectCombiner objectCombiner;
 
     private List<GameObject> chunks = new();
@@ -18,6 +18,8 @@ public class SceneInteractor : ScriptableObject
 
     private List<GameObject> allObjectsNeedToOptimize = new();
     private List<GameObject> objectsClones = new();
+
+    Dictionary<int, string> instanceIdsStringsToObjectsNames = new();
 
     public void Init()
     {
@@ -40,9 +42,29 @@ public class SceneInteractor : ScriptableObject
         return FindObjectsOfType<GameObject>().Where(obj => obj.activeSelf == true && obj.isStatic).ToArray();
     }
 
-    public List<GameObject> GetAllObjectsWithMeshFilter(List<GameObject> incomingObjects)
+    public GameObject[] GetAllActiveGameObjectsInBounds(Bounds bounds)
     {
-        return incomingObjects.Where(obj => obj.GetComponent<MeshFilter>() != null).ToList();
+        return FindObjectsOfType<GameObject>().Where(obj =>
+            obj.activeSelf == true &&
+            bounds.Contains(obj.transform.position)
+        ).ToArray();
+    }
+
+    public GameObject[] GetAllActiveStaticGameObjectsInBounds(Bounds bounds)
+    {
+        return FindObjectsOfType<GameObject>().Where(obj =>
+            obj.activeSelf == true &&
+            obj.isStatic &&
+            bounds.Contains(obj.transform.position)
+        ).ToArray();
+    }
+
+    public List<GameObject> GetAllObjectsWithMeshFilterOrLODGroup(List<GameObject> incomingObjects)
+    {
+        return incomingObjects.Where(
+            obj =>  obj.GetComponent<MeshFilter>() != null ||
+                    obj.GetComponent<LODGroup>() != null
+        ).ToList();
     }
 
     public Bounds GetSceneBounds()
@@ -50,7 +72,7 @@ public class SceneInteractor : ScriptableObject
         List<GameObject> allSceneObjects = new();
         if (allObjectsNeedToOptimize.Count == 0)
         {
-            allSceneObjects = GetAllObjectsWithMeshFilter(GetAllGameObjectsOnScene().ToList());
+            allSceneObjects = GetAllObjectsWithMeshFilterOrLODGroup(GetAllGameObjectsOnScene().ToList());
         }
         else
         {
@@ -60,8 +82,26 @@ public class SceneInteractor : ScriptableObject
         Bounds sceneBounds = new Bounds(Vector3.zero, Vector3.zero);
         foreach (GameObject obj in allSceneObjects)
         {
-            Bounds objBounds = obj.GetComponent<Renderer>().bounds;
-            sceneBounds.Encapsulate(objBounds);
+            Renderer renderer = obj.GetComponent<Renderer>();
+            LODGroup lodGroup = obj.GetComponent<LODGroup>();
+            if (renderer != null)
+            {
+                Bounds objBounds = obj.GetComponent<Renderer>().bounds;
+                sceneBounds.Encapsulate(objBounds);
+            }
+            else if (lodGroup != null)
+            {
+                LOD[] lods = lodGroup.GetLODs();
+                foreach (LOD lod in lods)
+                {
+                    Renderer[] lodRenderers = lod.renderers;
+                    foreach (Renderer lodRenderer in lodRenderers)
+                    {
+                        Bounds lodBounds = lodRenderer.bounds;
+                        sceneBounds.Encapsulate(lodBounds);
+                    }
+                }
+            }
         }
 
         return sceneBounds;
@@ -83,7 +123,7 @@ public class SceneInteractor : ScriptableObject
         Destroy(sceneBoundsObject);
     }
 
-    public void DivideIntoChunks(GameObject targetBoundsCube, Vector3Int sectionCount, Material chunkMaterial)
+    public void DivideIntoChunks(GameObject targetBoundsCube, Vector3Int sectionCount, Material chunkMaterial, bool deleteSceneBoundsObject)
     {
         chunks.Clear();
 
@@ -98,9 +138,10 @@ public class SceneInteractor : ScriptableObject
             Vector3 fillStartPosition = targetBoundsCube.transform.TransformPoint(new Vector3(-0.5f, 0.5f, -0.5f))
                                 + targetBoundsCube.transform.TransformDirection(new Vector3(chunkSize.x, -chunkSize.y, chunkSize.z) / 2.0f);
 
-            Transform parentTransform = new GameObject(targetBoundsCube.name).transform;
-
-            ObjectsInfoHolder.objectsCreatedByScript.Add(parentTransform.gameObject);
+            if (deleteSceneBoundsObject)
+            {
+                ObjectsInfoHolder.objectsCreatedByScript.Add(targetBoundsCube.gameObject);
+            }
 
             GameObject chunk;
             int chunkNumber = 0;
@@ -121,8 +162,8 @@ public class SceneInteractor : ScriptableObject
                                                        targetBoundsCube.transform.TransformDirection(new Vector3((chunkSize.x) * i, -(chunkSize.y) * j, (chunkSize.z) * k));
                         chunk.transform.rotation = targetBoundsCube.transform.rotation;
 
-                        chunk.transform.SetParent(parentTransform);
-                        chunk.AddComponent<BoxCollider>();
+                        chunk.transform.SetParent(targetBoundsCube.transform);
+                        chunk.GetComponent<BoxCollider>().isTrigger = true;
 
                         chunk.GetComponent<Renderer>().material = chunkMaterial;
                         chunk.GetComponent<MeshRenderer>().enabled = false;
@@ -132,40 +173,95 @@ public class SceneInteractor : ScriptableObject
                     }
                 }
             }
-
-            DestroyImmediate(targetBoundsCube);
         }
     }
 
-    public void MapObjectsToChunks(bool analyzeOnlyStaticObjects)
+    public void MapObjectsToChunks(bool analyzeOnlyStaticObjects, GameObject boundsObject)
     {
         chunksToObjects.Clear();
+        instanceIdsStringsToObjectsNames.Clear();
+        lodObjectsNames.Clear();
+
         List<GameObject> allSceneGameObjectsNeedToAnalyse;
         if (analyzeOnlyStaticObjects)
         {
-            allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllActiveStaticGameObjectsOnScene().ToList());
+            Renderer renderer = boundsObject.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilterOrLODGroup(GetAllActiveStaticGameObjectsInBounds(renderer.bounds).ToList());
+                
+            }
+            else
+            {
+                allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilterOrLODGroup(GetAllActiveStaticGameObjectsOnScene().ToList());
+            }
         }
         else
         {
-            allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilter(GetAllActiveGameObjectsOnScene().ToList());
+            Renderer renderer = boundsObject.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilterOrLODGroup(GetAllActiveGameObjectsInBounds(renderer.bounds).ToList());
+            }
+            else
+            {
+                allSceneGameObjectsNeedToAnalyse = GetAllObjectsWithMeshFilterOrLODGroup(GetAllActiveGameObjectsOnScene().ToList());
+            }
         }
 
-        foreach (GameObject chunk in chunks)
+        allSceneGameObjectsNeedToAnalyse.Remove(boundsObject);
+
+        List<GameObject> lodObjects = new();
+        List<GameObject> objectsWithLods = new();
+        foreach (GameObject obj in allSceneGameObjectsNeedToAnalyse)
         {
-            List<GameObject> objectsInChunk = new();
-            foreach (GameObject obj in allSceneGameObjectsNeedToAnalyse)
+            LODGroup lodGroup = obj.GetComponent<LODGroup>();
+            if (lodGroup != null)
             {
-                if (chunk.GetComponent<Renderer>().bounds.Contains(obj.transform.position) && !chunk.Equals(obj))
+                objectsWithLods.Add(obj);
+                LOD[] lods = lodGroup.GetLODs();
+                for (int i = 1; i < lods.Length; i++)
                 {
-                    objectsInChunk.Add(obj);
+                    Renderer[] renderers = lods[i].renderers;
+                    foreach (Renderer renderer in renderers)
+                    {
+                        lodObjectsNames.Add(renderer.gameObject.name);
+                        lodObjects.Add(renderer.gameObject);
+                    }
                 }
             }
-
-            if (objectsInChunk.Count > 0)
-            {
-                chunksToObjects.Add(chunk, objectsInChunk);
-            }
         }
+
+        foreach (GameObject lodObject in lodObjects)
+        {
+            allSceneGameObjectsNeedToAnalyse.Remove(lodObject);
+        }
+        foreach (GameObject obj in objectsWithLods)
+        {
+            allSceneGameObjectsNeedToAnalyse.Remove(obj);
+            ObjectsInfoHolder.originalObjects.Add(obj);
+        }
+
+        foreach (GameObject obj in allSceneGameObjectsNeedToAnalyse)
+        {
+            int instanceId = obj.GetInstanceID();
+            if (!instanceIdsStringsToObjectsNames.ContainsKey(instanceId)) 
+            {
+                instanceIdsStringsToObjectsNames.Add(instanceId, obj.name);
+            }
+            obj.name = instanceId.ToString();
+        }
+        foreach (GameObject chunkObj in chunks)
+        {
+            int instanceId = chunkObj.GetInstanceID();
+            if (!instanceIdsStringsToObjectsNames.ContainsKey(instanceId))
+            {
+                instanceIdsStringsToObjectsNames.Add(instanceId, chunkObj.name);
+            }
+            chunkObj.name = instanceId.ToString();
+        }
+
+        MapObjectsToChunksParallel(allSceneGameObjectsNeedToAnalyse);
     }
 
     public void OptimizeChunksByObjectsPolygonsCount(int objectsPolygonsThreshold, bool analyzeOnlyStaticObjects, bool isSaveObjectsNeeded = true)
@@ -334,7 +430,7 @@ public class SceneInteractor : ScriptableObject
             }
         }
     }
-    public GameObject DeactivateObjectAndGetClone(GameObject obj)
+    public GameObject GetClone(GameObject obj)
     {
         ObjectsInfoHolder.originalObjects.Add(obj);
         Transform objParent = obj.transform.parent;
@@ -342,7 +438,6 @@ public class SceneInteractor : ScriptableObject
         GameObject objClone = Instantiate(obj);
         objectsClones.Add(objClone);
         obj.transform.SetParent(objParent);
-        obj.SetActive(false);
 
         return objClone;
     }
@@ -350,7 +445,7 @@ public class SceneInteractor : ScriptableObject
     public void DestroyAllObjectsClones()
     {
         List<GameObject> remainingClones = objectsClones.Where(obj => obj != null).ToList();
-        foreach(GameObject clone in remainingClones)
+        foreach (GameObject clone in remainingClones)
         {
             DestroyImmediate(clone);
         }
@@ -378,10 +473,50 @@ public class SceneInteractor : ScriptableObject
         }
     }
 
+    private void MapObjectsToChunksParallel(List<GameObject> objects)
+    {
+        MapObjectsToChunksJob mapObjectsToChunksJob = new MapObjectsToChunksJob();
+        mapObjectsToChunksJob.chunks = ConvertToNativeArray(chunks.ToArray());
+        mapObjectsToChunksJob.allSceneGameObjectsNeedToAnalyse = ConvertToNativeArray(objects.ToArray());
+        mapObjectsToChunksJob.chunksIdsToObjectsIds = new NativeParallelHashMap<int, UnsafeList<int>>(objects.Count, Allocator.TempJob);
+
+        JobHandle handle = mapObjectsToChunksJob.Schedule(chunks.Count, chunks.Count);
+        JobHandle.ScheduleBatchedJobs();
+        handle.Complete();
+
+        chunksToObjects = ConvertInstanceIdsDictionaryToGameObjectsDictionary(mapObjectsToChunksJob.chunksIdsToObjectsIds);
+
+        mapObjectsToChunksJob.DisposeAllContainers();
+    }
+
+    private void MapObjectsToChunksSequential(List<GameObject> objects)
+    {
+        foreach (GameObject chunk in chunks)
+        {
+            List<GameObject> objectsInChunk = new();
+            foreach (GameObject obj in objects)
+            {
+                if (chunk.GetComponent<Renderer>().bounds.Contains(obj.transform.position) && !chunk.Equals(obj))
+                {
+                    objectsInChunk.Add(obj);
+                }
+            }
+
+            if (objectsInChunk.Count > 0)
+            {
+                chunksToObjects.TryAdd(chunk, objectsInChunk);
+            }
+        }
+    }
+
     private string GetObjectName(GameObject obj, string chunkName, CombineMethod combineMethodString, int iterationNumber = 0)
     {
         StringBuilder nameBuilder = new();
 
+        if (ObjectsInfoHolder.boundsObjectName != null)
+        {
+            nameBuilder.Append(ObjectsInfoHolder.boundsObjectName).Append("_");
+        }
         if (chunkName != null)
         {
             nameBuilder.Append(chunkName).Append("_");
@@ -412,6 +547,48 @@ public class SceneInteractor : ScriptableObject
         }
 
         return nameBuilder.ToString();
+    }
+
+    private NativeArray<JobGameObject> ConvertToNativeArray(GameObject[] objects)
+    {
+        List<JobGameObject> jobObjects = new();
+        foreach (GameObject obj in objects)
+        {
+            JobGameObject objectForNativeArray = new JobGameObject(obj);
+            jobObjects.Add(objectForNativeArray);
+        }
+        return new NativeArray<JobGameObject>(jobObjects.ToArray(), Allocator.TempJob);
+    }
+
+    private Dictionary<GameObject, List<GameObject>> ConvertInstanceIdsDictionaryToGameObjectsDictionary(NativeParallelHashMap<int, UnsafeList<int>> nativeHashMap) 
+    {
+        Dictionary<GameObject, List<GameObject>> result = new Dictionary<GameObject, List<GameObject>>();
+        foreach (KeyValue<int, UnsafeList<int>> entry in nativeHashMap)
+        {
+            GameObject keyObject = GameObject.Find(entry.Key.ToString());
+            if (keyObject != null)
+            {
+                if (instanceIdsStringsToObjectsNames.TryGetValue(keyObject.GetInstanceID(), out var keyObjectName))
+                {
+                    keyObject.name = keyObjectName;
+                    List<GameObject> valueObjects = new();
+                    foreach (int objectId in entry.Value)
+                    {
+                        GameObject valueObject = GameObject.Find(objectId.ToString());
+                        if (valueObject != null)
+                        {
+                            if (instanceIdsStringsToObjectsNames.TryGetValue(valueObject.GetInstanceID(), out var valueObjectName))
+                            {
+                                valueObject.name = valueObjectName;
+                                valueObjects.Add(valueObject);
+                            }
+                        }
+                    }
+                    result.Add(keyObject, valueObjects);
+                }
+            }
+        }
+        return result;
     }
 
     private enum CombineMethod

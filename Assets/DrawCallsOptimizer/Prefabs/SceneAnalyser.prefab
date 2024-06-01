@@ -45,17 +45,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   combineObjectsByPolygonsNeeded: 0
-  combineObjectsByMaterialsNeeded: 0
+  combineObjectsByMaterialsNeeded: 1
   combineObjectsByTagsNeeded: 0
   combineObjectsByDistanceNeeded: 0
-  sectionCount: {x: 1, y: 1, z: 1}
+  sectionCount: {x: 2, y: 1, z: 2}
   chunkObjectsPolygonsThreshold: 0
-  chunkObjectsWithSameMaterialThreshold: 0
+  chunkObjectsWithSameMaterialThreshold: 2
   tagsToCombine: []
   distanceLimit: 0
   collectionsOfObjectsToCombineByDistance: []
   chunkMaterial: {fileID: 2100000, guid: a4acf8c52d334e144a725c7cd797dfd8, type: 2}
-  analyzeOnlyStaticObjects: 1
+  analyzeOnlyStaticObjects: 0
   destroySceneBoundsObjectAfterOptimizations: 1
   saveAnalyzedObjectsBeforeOptimizations: 1
-  terrainsToOptimize: []
+  terrainsToOptimize:
+  - {fileID: 0}

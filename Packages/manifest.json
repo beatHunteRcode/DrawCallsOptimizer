@@ -2,6 +2,7 @@
   "dependencies": {
     "com.unity.autolod": "https://github.com/Unity-Technologies/AutoLOD.git",
     "com.unity.burst": "1.8.14",
+    "com.unity.cinemachine": "2.9.7",
     "com.unity.collab-proxy": "1.17.7",
     "com.unity.collections": "1.2.4",
     "com.unity.entities": "1.0.0-pre.65",
